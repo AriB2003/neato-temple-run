@@ -49,9 +49,6 @@ class ParticleFilter(Node):
         self.odom_frame = "odom"        # the name of the odometry coordinate frame
         self.scan_topic = "scan"        # the topic where we will get laser scans from 
 
-        # pose_listener responds to selection of a new approximate robot location (for instance using rviz)
-        self.create_subscription(PoseWithCovarianceStamped, 'initialpose', self.update_initial_pose, 10)
-
         # publish the current particle cloud.  This enables viewing particles in rviz.
         self.particle_pub = self.create_publisher(ParticleCloud, "particle_cloud", qos_profile_sensor_data)
 
@@ -73,7 +70,7 @@ class ParticleFilter(Node):
         # we are using a thread to work around single threaded execution bottleneck
         thread = Thread(target=self.loop_wrapper)
         thread.start()
-        self.transform_update_timer = self.create_timer(0.05, self.pub_latest_transform)
+        # self.transform_update_timer = self.create_timer(0.05, self.pub_latest_transform)
 
         # PARAMETERS
         self.n_particles = 300          # the number of particles to use
@@ -97,6 +94,20 @@ class ParticleFilter(Node):
         """
         print("main loop")
             
+    def scan_received(self, msg):
+        self.last_scan_timestamp = msg.header.stamp
+        # we throw away scans until we are done processing the previous scan
+        # self.scan_to_process is set to None in the run_loop 
+        if self.scan_to_process is None:
+            self.scan_to_process = msg
+
+    def publish_particles(self, timestamp):
+        msg = ParticleCloud()
+        msg.header.frame_id = self.map_frame
+        msg.header.stamp = timestamp
+        for p in self.particle_cloud:
+            msg.particles.append(Nav2Particle(pose=p.as_pose(), weight=p.w))
+        self.particle_pub.publish(msg)
 
 def main(args=None):
     rclpy.init()

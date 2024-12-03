@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(neato-temple-run)
+project(neato_temple_run)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -25,13 +25,13 @@ if(BUILD_TESTING)
 endif()
 
 install(PROGRAMS
-        neato-temple-run/main.py
+        neato_temple_run/main.py
         DESTINATION lib/${PROJECT_NAME})
 
 
-install(DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME})
+# install(DIRECTORY launch
+#   DESTINATION share/${PROJECT_NAME})
 
-ament_python_install_package(neato-temple-run)
+ament_python_install_package(neato_temple_run)
 
 ament_package()

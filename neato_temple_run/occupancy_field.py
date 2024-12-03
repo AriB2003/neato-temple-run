@@ -16,27 +16,27 @@ class OccupancyField(object):
 
     def __init__(self, node):
         # grab the map
-        self.map.info.width = 100
-        self.map.info.height = 100
-        self.map.info.resolution = 1
-        self.map.info.origin.position.x = 0
-        self.map.info.origin.position.y = 0
-        self.total_size = self.map.info.width*self.map.info.height
-        self.map.data = np.array((self.total_size))
-        random_indices = np.round(np.random.random_sample((10))*self.total_size)
-        self.map.data[random_indices] = 1
-        node.get_logger().info("map received width: {0} height: {1}".format(self.map.info.width, self.map.info.height))
+        self.map_width = 100
+        self.map_height = 100
+        self.map_resolution = 1
+        self.map_origin_x = 0
+        self.map_origin_y = 0
+        self.total_size = self.map_width*self.map_height
+        self.map_data = np.zeros((self.total_size))
+        random_indices = np.int64(np.random.random_sample((10))*self.total_size)
+        self.map_data[random_indices] = 1
+        node.get_logger().info("map received width: {0} height: {1}".format(self.map_width, self.map_height))
         # The coordinates of each grid cell in the map
-        X = np.zeros((self.map.info.width*self.map.info.height, 2))
+        X = np.zeros((self.map_width*self.map_height, 2))
 
         # while we're at it let's count the number of occupied cells
         total_occupied = 0
         curr = 0
-        for i in range(self.map.info.width):
-            for j in range(self.map.info.height):
+        for i in range(self.map_width):
+            for j in range(self.map_height):
                 # occupancy grids are stored in row major order
-                ind = i + j*self.map.info.width
-                if self.map.data[ind] > 0:
+                ind = i + j*self.map_width
+                if self.map_data[ind] > 0:
                     total_occupied += 1
                 X[curr, 0] = float(i)
                 X[curr, 1] = float(j)
@@ -45,11 +45,11 @@ class OccupancyField(object):
         # The coordinates of each occupied grid cell in the map
         occupied = np.zeros((total_occupied, 2))
         curr = 0
-        for i in range(self.map.info.width):
-            for j in range(self.map.info.height):
+        for i in range(self.map_width):
+            for j in range(self.map_height):
                 # occupancy grids are stored in row major order
-                ind = i + j*self.map.info.width
-                if self.map.data[ind] > 0:
+                ind = i + j*self.map_width
+                if self.map_data[ind] > 0:
                     occupied[curr, 0] = float(i)
                     occupied[curr, 1] = float(j)
                     curr += 1
@@ -61,12 +61,12 @@ class OccupancyField(object):
         distances, indices = nbrs.kneighbors(X)
 
         node.get_logger().info("populating occupancy field")
-        self.closest_occ = np.zeros((self.map.info.width, self.map.info.height))
+        self.closest_occ = np.zeros((self.map_width, self.map_height))
         curr = 0
-        for i in range(self.map.info.width):
-            for j in range(self.map.info.height):
+        for i in range(self.map_width):
+            for j in range(self.map_height):
                 self.closest_occ[i, j] = \
-                    distances[curr][0]*self.map.info.resolution
+                    distances[curr][0]*self.map_resolution
                 curr += 1
         self.occupied = occupied
         node.get_logger().info("occupancy field ready")
@@ -79,18 +79,18 @@ class OccupancyField(object):
         """
         lower_bounds = self.occupied.min(axis=0)
         upper_bounds = self.occupied.max(axis=0)
-        r = self.map.info.resolution
-        return ((lower_bounds[0]*r + self.map.info.origin.position.x,
-                 upper_bounds[0]*r + self.map.info.origin.position.x),
-                (lower_bounds[1]*r + self.map.info.origin.position.y,
-                 upper_bounds[1]*r + self.map.info.origin.position.y))
+        r = self.map_resolution
+        return ((lower_bounds[0]*r + self.map_origin_x,
+                 upper_bounds[0]*r + self.map_origin_x),
+                (lower_bounds[1]*r + self.map_origin_y,
+                 upper_bounds[1]*r + self.map_origin_y))
 
     def get_closest_obstacle_distance(self, x, y):
         """ Compute the closest obstacle to the specified (x,y) coordinate in
             the map.  If the (x,y) coordinate is out of the map boundaries, nan
             will be returned. """
-        x_coord = (x - self.map.info.origin.position.x)/self.map.info.resolution
-        y_coord = (y - self.map.info.origin.position.y)/self.map.info.resolution
+        x_coord = (x - self.map_origin_x)/self.map_resolution
+        y_coord = (y - self.map_origin_y)/self.map_resolution
         if type(x) is np.ndarray:
             x_coord = x_coord.astype(np.int)
             y_coord = y_coord.astype(np.int)
@@ -98,7 +98,7 @@ class OccupancyField(object):
             x_coord = int(x_coord)
             y_coord = int(y_coord)
 
-        is_valid = (x_coord >= 0) & (y_coord >= 0) & (x_coord < self.map.info.width) & (y_coord < self.map.info.height)
+        is_valid = (x_coord >= 0) & (y_coord >= 0) & (x_coord < self.map_width) & (y_coord < self.map_height)
         if type(x) is np.ndarray:
             distances = np.float('nan')*np.ones(x_coord.shape)
             distances[is_valid] = self.closest_occ[x_coord[is_valid], y_coord[is_valid]]
