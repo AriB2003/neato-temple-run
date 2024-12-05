@@ -49,7 +49,7 @@ class RRT(object):
         self.tolerance = 0.2
         self.step = 0.3
         self.thresh = 0.2
-        self.neighborhood = 0.5
+        self.neighborhood = 0.35
 
         self.timer = self.node.create_timer(0.1, self.publish_path)
         self.timer2 = self.node.create_timer(0.5, self.rrt)
@@ -87,9 +87,14 @@ class RRT(object):
         
     def rewire_tree(self):
         for treenode in self.tree[::-1]:
-            neigh, weigh = self.find_neighbors_distance(treenode)
-            minimum_index = weigh.index(min(weigh))
-            treenode.par = neigh[minimum_index]
+            if treenode.par is not None:
+                neigh, weigh = self.find_neighbors_distance(treenode)
+                if weigh:
+                    minimum_weight = min(weigh)
+                    if minimum_weight<treenode.w:
+                        minimum_index = weigh.index(minimum_weight)
+                        treenode.par = neigh[minimum_index]
+                        treenode.w = treenode.par.w + treenode.find_distance(treenode.par)
 
             
     def find_neighbors_distance(self, treenode):
