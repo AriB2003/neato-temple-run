@@ -43,7 +43,7 @@ class ParticleFilter(Node):
             thread: this thread runs your main loop
     """
     def __init__(self):
-        super().__init__('pf')
+        super().__init__('main')
         self.base_frame = "base_footprint"   # the frame of the robot base
         self.map_frame = "map"          # the name of the map coordinate frame
         self.odom_frame = "odom"        # the name of the odometry coordinate frame

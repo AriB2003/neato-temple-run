@@ -3,6 +3,8 @@
 
 import rclpy
 import numpy as np
+from builtin_interfaces.msg import Time
+from nav_msgs.msg import OccupancyGrid
 from sklearn.neighbors import NearestNeighbors
 
 class OccupancyField(object):
@@ -15,17 +17,25 @@ class OccupancyField(object):
     """
 
     def __init__(self, node):
+        self.node = node
+        self.occ_pub = node.create_publisher(OccupancyGrid, "occupancy_grid",10)
+        self.timer = node.create_timer(0.1, self.publish_occupancy_grid)
         # grab the map
         self.map_width = 100
         self.map_height = 100
-        self.map_resolution = 1
-        self.map_origin_x = 0
-        self.map_origin_y = 0
+        self.map_resolution = 1.0
+        self.map_origin_x = 0.0
+        self.map_origin_y = 0.0
         self.total_size = self.map_width*self.map_height
+        self.build()
+        self.timer = node.create_timer(2, self.build)
+        
+
+    def build(self):
         self.map_data = np.zeros((self.total_size))
-        random_indices = np.int64(np.random.random_sample((10))*self.total_size)
+        random_indices = np.int64(np.random.random_sample((np.random.random_integers(1,100)))*self.total_size)
         self.map_data[random_indices] = 1
-        node.get_logger().info("map received width: {0} height: {1}".format(self.map_width, self.map_height))
+        self.node.get_logger().info("map received width: {0} height: {1}".format(self.map_width, self.map_height))
         # The coordinates of each grid cell in the map
         X = np.zeros((self.map_width*self.map_height, 2))
 
@@ -53,14 +63,14 @@ class OccupancyField(object):
                     occupied[curr, 0] = float(i)
                     occupied[curr, 1] = float(j)
                     curr += 1
-        node.get_logger().info("building ball tree")
+        self.node.get_logger().info("building ball tree")
         # use super fast scikit learn nearest neighbor algorithm
         nbrs = NearestNeighbors(n_neighbors=1,
                                 algorithm="ball_tree").fit(occupied)
-        node.get_logger().info("finding neighbors")
+        self.node.get_logger().info("finding neighbors")
         distances, indices = nbrs.kneighbors(X)
 
-        node.get_logger().info("populating occupancy field")
+        self.node.get_logger().info("populating occupancy field")
         self.closest_occ = np.zeros((self.map_width, self.map_height))
         curr = 0
         for i in range(self.map_width):
@@ -69,7 +79,8 @@ class OccupancyField(object):
                     distances[curr][0]*self.map_resolution
                 curr += 1
         self.occupied = occupied
-        node.get_logger().info("occupancy field ready")
+        self.node.get_logger().info("occupancy field ready")
+
 
     def get_obstacle_bounding_box(self):
         """
@@ -105,3 +116,15 @@ class OccupancyField(object):
             return distances
         else:
             return self.closest_occ[x_coord, y_coord] if is_valid else float('nan')
+        
+    def publish_occupancy_grid(self):
+        msg = OccupancyGrid()
+        msg.info.resolution = self.map_resolution
+        msg.info.width = self.map_width
+        msg.info.height = self.map_height
+        msg.info.origin.position.x = self.map_origin_x
+        msg.info.origin.position.y = self.map_origin_y
+        msg.header.stamp = self.node.last_scan_timestamp or Time()
+        msg.header.frame_id = "odom"
+        msg.data = np.reshape(np.minimum(self.closest_occ,100).astype('int8'),-1).tolist()
+        self.occ_pub.publish(msg)
