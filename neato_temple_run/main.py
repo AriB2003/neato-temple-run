@@ -17,6 +17,7 @@ import time
 import random
 import numpy as np
 from occupancy_field import OccupancyField
+from rrt import RRT
 from rclpy.qos import qos_profile_sensor_data
 import scipy.stats as sp
 
@@ -66,6 +67,7 @@ class ParticleFilter(Node):
 
         self.current_odom_xy_theta = []
         self.occupancy_field = OccupancyField(self)
+        self.rrt = RRT(self, self.occupancy_field)
 
         # we are using a thread to work around single threaded execution bottleneck
         thread = Thread(target=self.loop_wrapper)

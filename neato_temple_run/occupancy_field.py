@@ -23,7 +23,7 @@ class OccupancyField(object):
         # grab the map
         self.map_width = 100
         self.map_height = 100
-        self.map_resolution = 1.0
+        self.map_resolution = 0.05
         self.map_origin_x = 0.0
         self.map_origin_y = 0.0
         self.total_size = self.map_width*self.map_height
@@ -95,21 +95,31 @@ class OccupancyField(object):
                  upper_bounds[0]*r + self.map_origin_x),
                 (lower_bounds[1]*r + self.map_origin_y,
                  upper_bounds[1]*r + self.map_origin_y))
+    
+    def get_index_from_coords(self, x, y):
+        x_coord = (x - self.map_origin_x)/self.map_resolution
+        y_coord = (y - self.map_origin_y)/self.map_resolution
+        if type(x) is np.ndarray:
+            x_coord = np.round(x_coord).astype(np.int)
+            y_coord = np.round(y_coord).astype(np.int)
+        else:
+            x_coord = int(round(x_coord))
+            y_coord = int(round(y_coord))
+
+        is_valid = (x_coord >= 0) & (y_coord >= 0) & (x_coord < self.map_width*self.map_resolution) & (y_coord < self.map_height*self.map_resolution)
+        return x_coord, y_coord, is_valid
+    
+    def get_coords_from_index(self, idx, idy):
+        x=idx*self.map_resolution+self.map_origin_x
+        y=idy*self.map_resolution+self.map_origin_y
+        is_valid = (idx >= 0) & (idy >= 0) & (idx < self.map_width) & (idy < self.map_height)
+        return x, y, is_valid
 
     def get_closest_obstacle_distance(self, x, y):
         """ Compute the closest obstacle to the specified (x,y) coordinate in
             the map.  If the (x,y) coordinate is out of the map boundaries, nan
             will be returned. """
-        x_coord = (x - self.map_origin_x)/self.map_resolution
-        y_coord = (y - self.map_origin_y)/self.map_resolution
-        if type(x) is np.ndarray:
-            x_coord = x_coord.astype(np.int)
-            y_coord = y_coord.astype(np.int)
-        else:
-            x_coord = int(x_coord)
-            y_coord = int(y_coord)
-
-        is_valid = (x_coord >= 0) & (y_coord >= 0) & (x_coord < self.map_width) & (y_coord < self.map_height)
+        x_coord, y_coord, is_valid = self.get_index_from_coords(x,y)
         if type(x) is np.ndarray:
             distances = np.float('nan')*np.ones(x_coord.shape)
             distances[is_valid] = self.closest_occ[x_coord[is_valid], y_coord[is_valid]]
@@ -126,5 +136,5 @@ class OccupancyField(object):
         msg.info.origin.position.y = self.map_origin_y
         msg.header.stamp = self.node.last_scan_timestamp or Time()
         msg.header.frame_id = "odom"
-        msg.data = np.reshape(np.minimum(self.closest_occ,100).astype('int8'),-1).tolist()
+        msg.data = np.reshape((100*(self.closest_occ<=0.2)).astype('int8'),-1).tolist()
         self.occ_pub.publish(msg)
