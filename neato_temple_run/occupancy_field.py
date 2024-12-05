@@ -27,8 +27,10 @@ class OccupancyField(object):
         self.map_origin_x = 0.0
         self.map_origin_y = 0.0
         self.total_size = self.map_width*self.map_height
+        self.updated = False
         self.build()
         self.timer = node.create_timer(2, self.build)
+        
         
 
     def build(self):
@@ -80,6 +82,7 @@ class OccupancyField(object):
                 curr += 1
         self.occupied = occupied
         self.node.get_logger().info("occupancy field ready")
+        self.updated = True
 
 
     def get_obstacle_bounding_box(self):
@@ -106,13 +109,13 @@ class OccupancyField(object):
             x_coord = int(round(x_coord))
             y_coord = int(round(y_coord))
 
-        is_valid = (x_coord >= 0) & (y_coord >= 0) & (x_coord < self.map_width*self.map_resolution) & (y_coord < self.map_height*self.map_resolution)
+        is_valid = (x_coord >= 0) & (y_coord >= 0) & (x_coord < self.map_width) & (y_coord < self.map_height)
         return x_coord, y_coord, is_valid
     
     def get_coords_from_index(self, idx, idy):
         x=idx*self.map_resolution+self.map_origin_x
         y=idy*self.map_resolution+self.map_origin_y
-        is_valid = (idx >= 0) & (idy >= 0) & (idx < self.map_width) & (idy < self.map_height)
+        is_valid = (idx >= 0) & (idy >= 0) & (idx < self.map_width*self.map_resolution) & (idy < self.map_height*self.map_resolution)
         return x, y, is_valid
 
     def get_closest_obstacle_distance(self, x, y):
