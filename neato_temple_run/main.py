@@ -60,11 +60,13 @@ class ParticleFilter(Node):
         self.chosen_dir = 0
         # publish the current particle cloud.  This enables viewing particles in rviz.
         self.particle_pub = self.create_publisher(ParticleCloud, "particle_cloud", qos_profile_sensor_data)
-        self.drive_pub = self.create_publisher(Twist, "cmd_vel", 10)
+        self.drive_pub = self.create_publisher(Twist, "cmd_vel", 40)
         self.wp_pub = self.create_publisher(PointStamped, "next_wp", 10)
         self.wp_dir_pub = self.create_publisher(Marker, "wp_dir", 10)
         self.timer = self.create_timer(0.1, self.publish_wp)
         self.timer2 = self.create_timer(0.1, self.publish_wp_dir)
+        self.timer3 = self.create_timer(1/40, self.drive)
+        self.timer4 = self.create_timer(0.1, self.reset_goal)
 
         # laser_subscriber listens for data from the lidar
         self.create_subscription(LaserScan, self.scan_topic, self.scan_received, 10)
@@ -82,6 +84,8 @@ class ParticleFilter(Node):
         self.occupancy_field = OccupancyField(self)
         self.transform_helper = TFHelper(self)
         self.rrt = RRT(self, self.occupancy_field)
+        self.path = []
+        self.directions = []
         self.last_index = 0
 
         # we are using a thread to work around single threaded execution bottleneck
@@ -134,8 +138,8 @@ class ParticleFilter(Node):
 
         self.current_odom_xy_theta = new_odom_xy_theta
 
-        self.drive()
-        self.reset_goal()
+        # self.drive()
+        # self.reset_goal()
             
     def reset_goal(self):
         dx = self.rrt.goal_pos.x-self.current_odom_xy_theta[0]
@@ -155,7 +159,7 @@ class ParticleFilter(Node):
                 direction_difference = abs(new_dir-math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2])))
                 self.rrt.valid_goal = False
                 self.rrt.goal_pos = Point32(x=x,y=y)
-                if self.rrt.occ_grid.get_closest_obstacle_distance(y,x)>1.5*self.rrt.thresh and (direction_difference<0.75 or counter>100) and 1<distance<3:
+                if self.rrt.occ_grid.get_closest_obstacle_distance(y,x)>1.5*self.rrt.thresh and (direction_difference<1 or counter>100) and 1<distance<3:
                     self.rrt.goal_pos = Point32(x=x,y=y)
                     self.rrt.valid_goal = True
                     print(f"New Goal: {self.rrt.goal_pos}")
@@ -163,31 +167,40 @@ class ParticleFilter(Node):
                         print("Failsafe")
                     break
                 counter+=1
+            self.rrt.trigger = True
 
     def drive(self):
         if self.rrt.path_updated:
             self.last_index=0
             self.rrt.path_updated = False
-        if self.rrt.path:
-            waypoints = self.rrt.path
+        if self.path:
+            waypoints = self.path
             distances = []
             dts = []
             for wp in waypoints:
                 dx = wp.x-self.current_odom_xy_theta[0]
                 dy = wp.y-self.current_odom_xy_theta[1]
+                # print(f"fd{math.atan2(dy,dx)}")
                 dt = math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2]))-math.atan2(dy,dx)
-                distances.append(math.sqrt(dx**2+dy**2)+abs(dt))
                 dts.append(dt)
+                dt = abs(dt)
+                # print(dt)
+                dis = math.sqrt(dx**2+dy**2)
+                if dt<math.pi/3 and dis>0.4:
+                    distances.append(dis+dt)
+                else:
+                    distances.append(math.inf)
+                
             index = distances.index(min(distances[self.last_index:]))
             self.wp = waypoints[index]
-            self.chosen_dir = self.rrt.directions[index]
+            self.chosen_dir = self.directions[index]
             direction = dts[index]
             self.last_index = index
             cmd_vel = Twist()
-            cmd_vel.linear.x = float(0.4)
+            cmd_vel.linear.x = float(max(0,1-abs(direction)))
             cmd_vel.angular.z = float(-direction)
             self.drive_pub.publish(cmd_vel)
-            print("Publish Drive")
+            # print("Publish Drive")
 
 
     def scan_received(self, msg):
