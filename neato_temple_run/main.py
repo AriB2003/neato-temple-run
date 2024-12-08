@@ -4,13 +4,14 @@
 
 import rclpy
 from threading import Thread
-from rclpy.time import Time
+# from rclpy.time import Time
 from rclpy.node import Node
 from std_msgs.msg import Header
 from sensor_msgs.msg import LaserScan
 from nav2_msgs.msg import ParticleCloud, Particle
 from nav2_msgs.msg import Particle as Nav2Particle
-from geometry_msgs.msg import PoseWithCovarianceStamped, Pose, Point, Quaternion, Twist, Point32
+from builtin_interfaces.msg import Time
+from geometry_msgs.msg import PoseWithCovarianceStamped, Pose, Point, Quaternion, Twist, Point32, PointStamped
 from rclpy.duration import Duration
 import math
 import time
@@ -51,9 +52,14 @@ class ParticleFilter(Node):
         self.odom_frame = "odom"        # the name of the odometry coordinate frame
         self.scan_topic = "scan"        # the topic where we will get laser scans from 
 
+
+        self.particle_cloud = []
+        self.wp = Point32()
         # publish the current particle cloud.  This enables viewing particles in rviz.
         self.particle_pub = self.create_publisher(ParticleCloud, "particle_cloud", qos_profile_sensor_data)
         self.drive_pub = self.create_publisher(Twist, "cmd_vel", 10)
+        self.wp_pub = self.create_publisher(PointStamped, "next_wp", 10)
+        self.timer = self.create_timer(0.1, self.publish_wp)
 
         # laser_subscriber listens for data from the lidar
         self.create_subscription(LaserScan, self.scan_topic, self.scan_received, 10)
@@ -65,7 +71,7 @@ class ParticleFilter(Node):
         # this is the current scan that our run_loop should process
         self.scan_to_process = None
         # your particle cloud will go here
-        self.particle_cloud = []
+        
 
         self.current_odom_xy_theta = [0.0,0.0,0.0]
         self.occupancy_field = OccupancyField(self)
@@ -130,8 +136,9 @@ class ParticleFilter(Node):
         dx = self.rrt.goal_pos.x-self.current_odom_xy_theta[1]
         dy = self.rrt.goal_pos.y-self.current_odom_xy_theta[0]
         distance = math.sqrt(dx**2+dy**2)
-        print(distance)
+        print(f"Distance to Goal: {distance}")
         if distance<0.5:
+            counter = 0
             while True:
                 x=self.occupancy_field.map_width*np.random.random()*self.occupancy_field.map_resolution+self.occupancy_field.map_origin_x
                 y=self.occupancy_field.map_height*np.random.random()*self.occupancy_field.map_resolution+self.occupancy_field.map_origin_y
@@ -140,11 +147,17 @@ class ParticleFilter(Node):
                 distance = math.sqrt(dx**2+dy**2)
                 new_dir = math.atan2(x-self.current_odom_xy_theta[0],y-self.current_odom_xy_theta[1])
                 # print(f"{x},{y},dir:{self.current_odom_xy_theta[2]},{new_dir}")
-                direction_difference = abs(new_dir-self.current_odom_xy_theta[2])
-                if self.rrt.occ_grid.get_closest_obstacle_distance(x,y)>self.rrt.thresh and direction_difference<0.5 and distance>1:
+                direction_difference = abs(new_dir-math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2])))
+                self.rrt.valid_goal = False
+                self.rrt.goal_pos = Point32(x=x,y=y)
+                if self.rrt.occ_grid.get_closest_obstacle_distance(x,y)>1.5*self.rrt.thresh and (direction_difference<0.75 or counter>100) and 1<distance<3:
                     self.rrt.goal_pos = Point32(x=x,y=y)
+                    self.rrt.valid_goal = True
                     print(f"New Goal: {self.rrt.goal_pos}")
+                    if counter>100:
+                        print("Failsafe")
                     break
+                counter+=1
 
     def drive(self):
         if self.rrt.path_updated:
@@ -156,16 +169,18 @@ class ParticleFilter(Node):
         for wp in waypoints:
             dx = wp.x-self.current_odom_xy_theta[0]
             dy = wp.y-self.current_odom_xy_theta[1]
-            dt = self.current_odom_xy_theta[2]-math.atan2(dy,dx)
-            distances.append(math.sqrt(dx**2+dy**2)+abs(dt)/3)
+            dt = math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2]))-math.atan2(dy,dx)
+            distances.append(math.sqrt(dx**2+dy**2)+abs(dt))
             dts.append(dt)
         index = distances.index(min(distances[self.last_index:]))
+        self.wp = waypoints[index]
         direction = dts[index]
         self.last_index = index
         cmd_vel = Twist()
         cmd_vel.linear.x = float(0.4)
         cmd_vel.angular.z = float(-direction)
         self.drive_pub.publish(cmd_vel)
+        print("Publish Drive")
 
 
     def scan_received(self, msg):
@@ -182,6 +197,13 @@ class ParticleFilter(Node):
         for p in self.particle_cloud:
             msg.particles.append(Nav2Particle(pose=p.as_pose(), weight=p.w))
         self.particle_pub.publish(msg)
+
+    def publish_wp(self):
+        msg = PointStamped()
+        msg.point = Point(x=self.wp.x, y=self.wp.y)
+        msg.header.stamp = self.last_scan_timestamp or Time()
+        msg.header.frame_id = "odom"
+        self.wp_pub.publish(msg)
 
 def main(args=None):
     rclpy.init()

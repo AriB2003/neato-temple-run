@@ -7,7 +7,8 @@ import math
 import numpy as np
 import scipy.stats as sp
 from builtin_interfaces.msg import Time
-from geometry_msgs.msg import PolygonStamped, Point32
+from geometry_msgs.msg import PolygonStamped, Point32, PointStamped, Point
+from sensor_msgs.msg import PointCloud
 from sklearn.neighbors import NearestNeighbors
 
 class TreeNode(object):
@@ -45,23 +46,30 @@ class RRT(object):
         self.start_pos = Point32(x=0.0,y=0.0)
         self.start_dir = 0.0
         self.goal_pos = Point32(x=0.0,y=0.0)
+        self.valid_goal = False
         self.path_pub = self.node.create_publisher(PolygonStamped, "path",10)
+        self.goal_pub = self.node.create_publisher(PointStamped, "goal",10)
+        self.tree_pub = self.node.create_publisher(PointCloud, "tree",10)
 
-        self.tree = None
+        self.tree = []
         self.tolerance = 0.2
         self.step = 0.3
         self.thresh = self.occ_grid.offset
         self.neighborhood = 0.5
 
         self.timer = self.node.create_timer(0.1, self.publish_path)
+        self.timer3 = self.node.create_timer(0.1, self.publish_goal)
+        self.timer4 = self.node.create_timer(0.1, self.publish_tree)
         self.timer2 = self.node.create_timer(0.5, self.rrt)
         self.path = [Point32(x=15*np.random.random(),y=15*np.random.random()) for i in range(20)]
         self.path_updated = False
 
     def rrt(self):
+        if not self.valid_goal:
+            return
         self.start_pos = Point32(x=self.node.current_odom_xy_theta[1],y=self.node.current_odom_xy_theta[0])
         self.start_dir = self.node.current_odom_xy_theta[2]
-        print(self.node.current_odom_xy_theta)
+        print(f"Current Odom: {self.node.current_odom_xy_theta}")
         self.occ_grid.updated = True
         if self.occ_grid.updated:
             self.tree = [TreeNode(self.start_pos, None, self.start_dir)]
@@ -71,8 +79,8 @@ class RRT(object):
                 goal_dir_x = self.goal_pos.x-parent.pos.x
                 goal_dir_y = self.goal_pos.y-parent.pos.y
                 goal_dir = math.atan2(goal_dir_y, goal_dir_x)
-                chosen_dir = sp.norm.rvs(loc = (2*goal_dir+parent.dir)/3, scale = 1)
-                chosen_dir = chosen_dir % (math.pi)
+                chosen_dir = sp.norm.rvs(loc = goal_dir, scale = 1)
+                chosen_dir = chosen_dir % (2*math.pi)
                 dir_x = self.step*math.cos(chosen_dir)
                 dir_y = self.step*math.sin(chosen_dir)
                 new_x = parent.pos.x+dir_x
@@ -80,11 +88,11 @@ class RRT(object):
                 if self.occ_grid.get_closest_obstacle_distance(new_x,new_y)>self.thresh:
                     self.tree.append(TreeNode(Point32(x=new_x,y=new_y),parent,chosen_dir))
                     if math.sqrt((self.goal_pos.x-new_x)**2+(self.goal_pos.y-new_y)**2)<self.tolerance:
-                        print(len(self.tree))
-                        # self.rewire_tree()
+                        # print(len(self.tree))
+                        self.rewire_tree()
                         self.path = self.extract_path(self.tree[-1])
                         self.path_updated = True
-                        print(len(self.path))
+                        # print(len(self.path))
                         break
             self.occ_grid.updated = False
             
@@ -146,9 +154,23 @@ class RRT(object):
     #         path.append(pos)
     #     return path
 
+    def publish_tree(self):
+        msg = PointCloud()
+        msg.header.stamp = self.node.last_scan_timestamp or Time()
+        msg.header.frame_id = "odom"
+        msg.points = [p.return_point32() for p in self.tree]
+        self.tree_pub.publish(msg)
+
     def publish_path(self):
         msg = PolygonStamped()
         msg.polygon.points = self.path
         msg.header.stamp = self.node.last_scan_timestamp or Time()
         msg.header.frame_id = "odom"
         self.path_pub.publish(msg)
+
+    def publish_goal(self):
+        msg = PointStamped()
+        msg.point = Point(x=self.goal_pos.y,y=self.goal_pos.x)
+        msg.header.stamp = self.node.last_scan_timestamp or Time()
+        msg.header.frame_id = "odom"
+        self.goal_pub.publish(msg)
