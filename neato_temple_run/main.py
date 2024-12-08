@@ -22,6 +22,8 @@ from helper_functions import TFHelper
 from rrt import RRT
 from rclpy.qos import qos_profile_sensor_data
 import scipy.stats as sp
+from visualization_msgs.msg import Marker
+from angle_helpers import quaternion_from_euler
 
 
 class ParticleFilter(Node):
@@ -55,11 +57,14 @@ class ParticleFilter(Node):
 
         self.particle_cloud = []
         self.wp = Point32()
+        self.chosen_dir = 0
         # publish the current particle cloud.  This enables viewing particles in rviz.
         self.particle_pub = self.create_publisher(ParticleCloud, "particle_cloud", qos_profile_sensor_data)
         self.drive_pub = self.create_publisher(Twist, "cmd_vel", 10)
         self.wp_pub = self.create_publisher(PointStamped, "next_wp", 10)
+        self.wp_dir_pub = self.create_publisher(Marker, "wp_dir", 10)
         self.timer = self.create_timer(0.1, self.publish_wp)
+        self.timer2 = self.create_timer(0.1, self.publish_wp_dir)
 
         # laser_subscriber listens for data from the lidar
         self.create_subscription(LaserScan, self.scan_topic, self.scan_received, 10)
@@ -163,24 +168,26 @@ class ParticleFilter(Node):
         if self.rrt.path_updated:
             self.last_index=0
             self.rrt.path_updated = False
-        waypoints = self.rrt.path
-        distances = []
-        dts = []
-        for wp in waypoints:
-            dx = wp.x-self.current_odom_xy_theta[0]
-            dy = wp.y-self.current_odom_xy_theta[1]
-            dt = math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2]))-math.atan2(dy,dx)
-            distances.append(math.sqrt(dx**2+dy**2)+abs(dt))
-            dts.append(dt)
-        index = distances.index(min(distances[self.last_index:]))
-        self.wp = waypoints[index]
-        direction = dts[index]
-        self.last_index = index
-        cmd_vel = Twist()
-        cmd_vel.linear.x = float(0.4)
-        cmd_vel.angular.z = float(-direction)
-        self.drive_pub.publish(cmd_vel)
-        print("Publish Drive")
+        if self.rrt.path:
+            waypoints = self.rrt.path
+            distances = []
+            dts = []
+            for wp in waypoints:
+                dx = wp.x-self.current_odom_xy_theta[0]
+                dy = wp.y-self.current_odom_xy_theta[1]
+                dt = math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2]))-math.atan2(dy,dx)
+                distances.append(math.sqrt(dx**2+dy**2)+abs(dt))
+                dts.append(dt)
+            index = distances.index(min(distances[self.last_index:]))
+            self.wp = waypoints[index]
+            self.chosen_dir = self.rrt.directions[index]
+            direction = dts[index]
+            self.last_index = index
+            cmd_vel = Twist()
+            cmd_vel.linear.x = float(0.4)
+            cmd_vel.angular.z = float(-direction)
+            self.drive_pub.publish(cmd_vel)
+            print("Publish Drive")
 
 
     def scan_received(self, msg):
@@ -204,6 +211,32 @@ class ParticleFilter(Node):
         msg.header.stamp = self.last_scan_timestamp or Time()
         msg.header.frame_id = "odom"
         self.wp_pub.publish(msg)
+
+    def publish_wp_dir(self):
+        msg = Marker()
+        msg.header.frame_id = 'odom'
+        msg.header.stamp = self.last_scan_timestamp or Time()
+        msg.type = Marker.ARROW
+        msg.action = Marker.ADD
+
+        # Customize the appearance
+        msg.scale.x = 0.5  # Shaft diameter
+        msg.scale.y = 0.1  # Head diameter
+        msg.scale.z = 0.1  # Head length
+
+        msg.pose.position = Point(x=self.wp.x, y=self.wp.y)
+
+        # Specify the start and end points of the vector
+        q = quaternion_from_euler(0,0,self.chosen_dir)
+        msg.pose.orientation.x = q[0]
+        msg.pose.orientation.y = q[1]
+        msg.pose.orientation.z = q[2]
+        msg.pose.orientation.w = q[3]
+        msg.color.r = 1.0
+        msg.color.g = 1.0
+        msg.color.b = 0.0
+        msg.color.a = 1.0        
+        self.wp_dir_pub.publish(msg)
 
 def main(args=None):
     rclpy.init()

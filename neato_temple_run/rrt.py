@@ -7,9 +7,12 @@ import math
 import numpy as np
 import scipy.stats as sp
 from builtin_interfaces.msg import Time
-from geometry_msgs.msg import PolygonStamped, Point32, PointStamped, Point
+from geometry_msgs.msg import PolygonStamped, Point32, PointStamped, Point, Vector3, Pose, Quaternion
 from sensor_msgs.msg import PointCloud
+from visualization_msgs.msg import Marker
 from sklearn.neighbors import NearestNeighbors
+from angle_helpers import quaternion_from_euler
+
 
 class TreeNode(object):
     def __init__(self, pos, parent, dir):
@@ -50,6 +53,8 @@ class RRT(object):
         self.path_pub = self.node.create_publisher(PolygonStamped, "path",10)
         self.goal_pub = self.node.create_publisher(PointStamped, "goal",10)
         self.tree_pub = self.node.create_publisher(PointCloud, "tree",10)
+        self.goal_dir_pub = self.node.create_publisher(Marker, "goal_dir",10)
+        self.curr_dir_pub = self.node.create_publisher(Marker, "curr_dir",10)
 
         self.tree = []
         self.tolerance = 0.2
@@ -60,16 +65,19 @@ class RRT(object):
         self.timer = self.node.create_timer(0.1, self.publish_path)
         self.timer3 = self.node.create_timer(0.1, self.publish_goal)
         self.timer4 = self.node.create_timer(0.1, self.publish_tree)
+        self.timer5 = self.node.create_timer(0.1, self.publish_dirs)
         self.timer2 = self.node.create_timer(0.5, self.rrt)
-        self.path = [Point32(x=15*np.random.random(),y=15*np.random.random()) for i in range(20)]
+        self.path = []
+        self.directions = []
         self.path_updated = False
 
     def rrt(self):
         if not self.valid_goal:
             return
         self.start_pos = Point32(x=self.node.current_odom_xy_theta[1],y=self.node.current_odom_xy_theta[0])
-        self.start_dir = self.node.current_odom_xy_theta[2]
+        self.start_dir = math.atan2(math.sin(self.node.current_odom_xy_theta[2]),math.cos(self.node.current_odom_xy_theta[2]))
         print(f"Current Odom: {self.node.current_odom_xy_theta}")
+        print(f"Start Dir: {self.start_dir}")
         self.occ_grid.updated = True
         if self.occ_grid.updated:
             self.tree = [TreeNode(self.start_pos, None, self.start_dir)]
@@ -79,10 +87,10 @@ class RRT(object):
                 goal_dir_x = self.goal_pos.x-parent.pos.x
                 goal_dir_y = self.goal_pos.y-parent.pos.y
                 goal_dir = math.atan2(goal_dir_y, goal_dir_x)
-                chosen_dir = sp.norm.rvs(loc = goal_dir, scale = 1)
-                chosen_dir = chosen_dir % (2*math.pi)
+                chosen_dir = sp.norm.rvs(loc = parent.dir, scale = 1)
                 dir_x = self.step*math.cos(chosen_dir)
                 dir_y = self.step*math.sin(chosen_dir)
+                chosen_dir = math.atan2(dir_y,dir_x)
                 new_x = parent.pos.x+dir_x
                 new_y = parent.pos.y+dir_y
                 if self.occ_grid.get_closest_obstacle_distance(new_x,new_y)>self.thresh:
@@ -90,7 +98,9 @@ class RRT(object):
                     if math.sqrt((self.goal_pos.x-new_x)**2+(self.goal_pos.y-new_y)**2)<self.tolerance:
                         # print(len(self.tree))
                         self.rewire_tree()
+                        self.directions = []
                         self.path = self.extract_path(self.tree[-1])
+                        self.directions.reverse()
                         self.path_updated = True
                         # print(len(self.path))
                         break
@@ -98,6 +108,7 @@ class RRT(object):
             
 
     def extract_path(self,treenode):
+        self.directions.append(treenode.dir)
         if treenode.par is None:
             return [treenode.return_point32()]
         return self.extract_path(treenode.par)+[treenode.return_point32()]
@@ -174,3 +185,41 @@ class RRT(object):
         msg.header.stamp = self.node.last_scan_timestamp or Time()
         msg.header.frame_id = "odom"
         self.goal_pub.publish(msg)
+
+    def publish_dirs(self):
+        msg = Marker()
+        msg.header.frame_id = 'odom'
+        msg.header.stamp = self.node.last_scan_timestamp or Time()
+        msg.type = Marker.ARROW
+        msg.action = Marker.ADD
+
+        # Customize the appearance
+        msg.scale.x = 0.5  # Shaft diameter
+        msg.scale.y = 0.1  # Head diameter
+        msg.scale.z = 0.1  # Head length
+
+        msg.pose.position = Point(x=self.start_pos.y, y=self.start_pos.x)
+
+        # Specify the start and end points of the vector
+        q = quaternion_from_euler(0,0,math.atan2(self.goal_pos.x-self.start_pos.x,self.goal_pos.y-self.start_pos.y))
+        msg.pose.orientation.x = q[0]
+        msg.pose.orientation.y = q[1]
+        msg.pose.orientation.z = q[2]
+        msg.pose.orientation.w = q[3]
+        msg.color.r = 1.0
+        msg.color.g = 0.0
+        msg.color.b = 0.0
+        msg.color.a = 1.0        
+        self.goal_dir_pub.publish(msg)
+
+        # Specify the start and end points of the vector
+        q = quaternion_from_euler(0,0,self.start_dir)
+        msg.pose.orientation.x = q[0]
+        msg.pose.orientation.y = q[1]
+        msg.pose.orientation.z = q[2]
+        msg.pose.orientation.w = q[3]
+        msg.color.r = 0.0
+        msg.color.g = 0.0
+        msg.color.b = 1.0
+        msg.color.a = 1.0        
+        self.curr_dir_pub.publish(msg)
