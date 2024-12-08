@@ -25,7 +25,7 @@ class TreeNode(object):
             self.w = parent.w+self.find_distance(parent)
 
     def return_point32(self):
-        return Point32(x=self.pos.y,y=self.pos.x)
+        return Point32(x=self.pos.x,y=self.pos.y)
     
     def find_distance(self, other):
         return (self.pos.x-other.pos.x)**2+(self.pos.y-other.pos.y)**2
@@ -74,7 +74,7 @@ class RRT(object):
     def rrt(self):
         if not self.valid_goal:
             return
-        self.start_pos = Point32(x=self.node.current_odom_xy_theta[1],y=self.node.current_odom_xy_theta[0])
+        self.start_pos = Point32(x=self.node.current_odom_xy_theta[0],y=self.node.current_odom_xy_theta[1])
         self.start_dir = math.atan2(math.sin(self.node.current_odom_xy_theta[2]),math.cos(self.node.current_odom_xy_theta[2]))
         print(f"Current Odom: {self.node.current_odom_xy_theta}")
         print(f"Start Dir: {self.start_dir}")
@@ -87,7 +87,7 @@ class RRT(object):
                 goal_dir_x = self.goal_pos.x-parent.pos.x
                 goal_dir_y = self.goal_pos.y-parent.pos.y
                 goal_dir = math.atan2(goal_dir_y, goal_dir_x)
-                chosen_dir = sp.norm.rvs(loc = parent.dir, scale = 1)
+                chosen_dir = sp.norm.rvs(loc = goal_dir, scale = 1)
                 dir_x = self.step*math.cos(chosen_dir)
                 dir_y = self.step*math.sin(chosen_dir)
                 chosen_dir = math.atan2(dir_y,dir_x)
@@ -181,7 +181,7 @@ class RRT(object):
 
     def publish_goal(self):
         msg = PointStamped()
-        msg.point = Point(x=self.goal_pos.y,y=self.goal_pos.x)
+        msg.point = Point(x=self.goal_pos.x,y=self.goal_pos.y)
         msg.header.stamp = self.node.last_scan_timestamp or Time()
         msg.header.frame_id = "odom"
         self.goal_pub.publish(msg)
@@ -198,10 +198,10 @@ class RRT(object):
         msg.scale.y = 0.1  # Head diameter
         msg.scale.z = 0.1  # Head length
 
-        msg.pose.position = Point(x=self.start_pos.y, y=self.start_pos.x)
+        msg.pose.position = Point(x=self.start_pos.x, y=self.start_pos.y)
 
         # Specify the start and end points of the vector
-        q = quaternion_from_euler(0,0,math.atan2(self.goal_pos.x-self.start_pos.x,self.goal_pos.y-self.start_pos.y))
+        q = quaternion_from_euler(0,0,math.atan2(self.goal_pos.y-self.start_pos.y,self.goal_pos.x-self.start_pos.x))
         msg.pose.orientation.x = q[0]
         msg.pose.orientation.y = q[1]
         msg.pose.orientation.z = q[2]

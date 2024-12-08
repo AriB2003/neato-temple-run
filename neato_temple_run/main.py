@@ -138,8 +138,8 @@ class ParticleFilter(Node):
         self.reset_goal()
             
     def reset_goal(self):
-        dx = self.rrt.goal_pos.x-self.current_odom_xy_theta[1]
-        dy = self.rrt.goal_pos.y-self.current_odom_xy_theta[0]
+        dx = self.rrt.goal_pos.x-self.current_odom_xy_theta[0]
+        dy = self.rrt.goal_pos.y-self.current_odom_xy_theta[1]
         distance = math.sqrt(dx**2+dy**2)
         print(f"Distance to Goal: {distance}")
         if distance<0.5:
@@ -147,15 +147,15 @@ class ParticleFilter(Node):
             while True:
                 x=self.occupancy_field.map_width*np.random.random()*self.occupancy_field.map_resolution+self.occupancy_field.map_origin_x
                 y=self.occupancy_field.map_height*np.random.random()*self.occupancy_field.map_resolution+self.occupancy_field.map_origin_y
-                dx = x-self.current_odom_xy_theta[1]
-                dy = y-self.current_odom_xy_theta[0]
+                dx = x-self.current_odom_xy_theta[0]
+                dy = y-self.current_odom_xy_theta[1]
                 distance = math.sqrt(dx**2+dy**2)
-                new_dir = math.atan2(x-self.current_odom_xy_theta[0],y-self.current_odom_xy_theta[1])
+                new_dir = math.atan2(y-self.current_odom_xy_theta[1],x-self.current_odom_xy_theta[0])
                 # print(f"{x},{y},dir:{self.current_odom_xy_theta[2]},{new_dir}")
                 direction_difference = abs(new_dir-math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2])))
                 self.rrt.valid_goal = False
                 self.rrt.goal_pos = Point32(x=x,y=y)
-                if self.rrt.occ_grid.get_closest_obstacle_distance(x,y)>1.5*self.rrt.thresh and (direction_difference<0.75 or counter>100) and 1<distance<3:
+                if self.rrt.occ_grid.get_closest_obstacle_distance(y,x)>1.5*self.rrt.thresh and (direction_difference<0.75 or counter>100) and 1<distance<3:
                     self.rrt.goal_pos = Point32(x=x,y=y)
                     self.rrt.valid_goal = True
                     print(f"New Goal: {self.rrt.goal_pos}")
