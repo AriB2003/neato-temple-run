@@ -11,8 +11,9 @@ from geometry_msgs.msg import PolygonStamped, Point32
 from sklearn.neighbors import NearestNeighbors
 
 class TreeNode(object):
-    def __init__(self, pos, parent):
+    def __init__(self, pos, parent, dir):
         self.pos = pos
+        self.dir = dir
         self.par = parent
         if parent is None:
             self.w = 0
@@ -23,7 +24,7 @@ class TreeNode(object):
         return Point32(x=self.pos.y,y=self.pos.x)
     
     def find_distance(self, other):
-        return math.sqrt((self.pos.x-other.pos.x)**2+(self.pos.y-other.pos.y)**2)
+        return (self.pos.x-other.pos.x)**2+(self.pos.y-other.pos.y)**2
     
     def __str__(self):
         return f"{self.pos.x},{self.pos.y}"
@@ -42,39 +43,47 @@ class RRT(object):
         self.occ_grid = occ_grid
         self.resolution = self.occ_grid.map_resolution
         self.start_pos = Point32(x=0.0,y=0.0)
-        self.goal_pos = Point32(x=4.5,y=4.5)
+        self.start_dir = 0.0
+        self.goal_pos = Point32(x=0.0,y=0.0)
         self.path_pub = self.node.create_publisher(PolygonStamped, "path",10)
 
         self.tree = None
         self.tolerance = 0.2
         self.step = 0.3
-        self.thresh = 0.2
-        self.neighborhood = 0.35
+        self.thresh = self.occ_grid.offset
+        self.neighborhood = 0.5
 
         self.timer = self.node.create_timer(0.1, self.publish_path)
         self.timer2 = self.node.create_timer(0.5, self.rrt)
         self.path = [Point32(x=15*np.random.random(),y=15*np.random.random()) for i in range(20)]
+        self.path_updated = False
 
     def rrt(self):
+        self.start_pos = Point32(x=self.node.current_odom_xy_theta[1],y=self.node.current_odom_xy_theta[0])
+        self.start_dir = self.node.current_odom_xy_theta[2]
+        print(self.node.current_odom_xy_theta)
+        self.occ_grid.updated = True
         if self.occ_grid.updated:
-            self.tree = [TreeNode(self.start_pos, None)]
+            self.tree = [TreeNode(self.start_pos, None, self.start_dir)]
             for i in range(10000):
                 chosen_idx = int(sp.norm.rvs(loc = 0.9*len(self.tree), scale = len(self.tree)/2))
                 parent = self.tree[max(0,min(chosen_idx, len(self.tree)-1))]
                 goal_dir_x = self.goal_pos.x-parent.pos.x
                 goal_dir_y = self.goal_pos.y-parent.pos.y
                 goal_dir = math.atan2(goal_dir_y, goal_dir_x)
-                chosen_dir = sp.norm.rvs(loc = goal_dir, scale = 1)
+                chosen_dir = sp.norm.rvs(loc = (2*goal_dir+parent.dir)/3, scale = 1)
+                chosen_dir = chosen_dir % (math.pi)
                 dir_x = self.step*math.cos(chosen_dir)
                 dir_y = self.step*math.sin(chosen_dir)
                 new_x = parent.pos.x+dir_x
                 new_y = parent.pos.y+dir_y
                 if self.occ_grid.get_closest_obstacle_distance(new_x,new_y)>self.thresh:
-                    self.tree.append(TreeNode(Point32(x=new_x,y=new_y),parent))
+                    self.tree.append(TreeNode(Point32(x=new_x,y=new_y),parent,chosen_dir))
                     if math.sqrt((self.goal_pos.x-new_x)**2+(self.goal_pos.y-new_y)**2)<self.tolerance:
                         print(len(self.tree))
-                        self.rewire_tree()
+                        # self.rewire_tree()
                         self.path = self.extract_path(self.tree[-1])
+                        self.path_updated = True
                         print(len(self.path))
                         break
             self.occ_grid.updated = False

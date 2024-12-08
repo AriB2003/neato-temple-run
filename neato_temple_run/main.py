@@ -10,13 +10,14 @@ from std_msgs.msg import Header
 from sensor_msgs.msg import LaserScan
 from nav2_msgs.msg import ParticleCloud, Particle
 from nav2_msgs.msg import Particle as Nav2Particle
-from geometry_msgs.msg import PoseWithCovarianceStamped, Pose, Point, Quaternion
+from geometry_msgs.msg import PoseWithCovarianceStamped, Pose, Point, Quaternion, Twist, Point32
 from rclpy.duration import Duration
 import math
 import time
 import random
 import numpy as np
 from occupancy_field import OccupancyField
+from helper_functions import TFHelper
 from rrt import RRT
 from rclpy.qos import qos_profile_sensor_data
 import scipy.stats as sp
@@ -52,6 +53,7 @@ class ParticleFilter(Node):
 
         # publish the current particle cloud.  This enables viewing particles in rviz.
         self.particle_pub = self.create_publisher(ParticleCloud, "particle_cloud", qos_profile_sensor_data)
+        self.drive_pub = self.create_publisher(Twist, "cmd_vel", 10)
 
         # laser_subscriber listens for data from the lidar
         self.create_subscription(LaserScan, self.scan_topic, self.scan_received, 10)
@@ -65,9 +67,11 @@ class ParticleFilter(Node):
         # your particle cloud will go here
         self.particle_cloud = []
 
-        self.current_odom_xy_theta = []
+        self.current_odom_xy_theta = [0.0,0.0,0.0]
         self.occupancy_field = OccupancyField(self)
+        self.transform_helper = TFHelper(self)
         self.rrt = RRT(self, self.occupancy_field)
+        self.last_index = 0
 
         # we are using a thread to work around single threaded execution bottleneck
         thread = Thread(target=self.loop_wrapper)
@@ -94,8 +98,76 @@ class ParticleFilter(Node):
             
             You do not need to modify this function, but it is helpful to understand it.
         """
-        print("main loop")
+        if self.scan_to_process is None:
+            return
+        msg = self.scan_to_process
+        
+        (new_pose, delta_t) = self.transform_helper.get_matching_odom_pose(self.odom_frame,
+                                                                           self.base_frame,
+                                                                           msg.header.stamp)
+        if new_pose is None:
+            # we were unable to get the pose of the robot corresponding to the scan timestamp
+            if delta_t is not None and delta_t < Duration(seconds=0.0):
+                # we will never get this transform, since it is before our oldest one
+                self.scan_to_process = None
+            return
+        
+        (r, theta) = self.transform_helper.convert_scan_to_polar_in_robot_frame(msg, self.base_frame)
+        # print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
+        # clear the current scan so that we can process the next one
+        self.scan_to_process = None
+
+        self.odom_pose = new_pose
+        new_odom_xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
+        # print("x: {0}, y: {1}, yaw: {2}".format(*new_odom_xy_theta))
+
+        self.current_odom_xy_theta = new_odom_xy_theta
+
+        self.drive()
+        self.reset_goal()
             
+    def reset_goal(self):
+        dx = self.rrt.goal_pos.x-self.current_odom_xy_theta[1]
+        dy = self.rrt.goal_pos.y-self.current_odom_xy_theta[0]
+        distance = math.sqrt(dx**2+dy**2)
+        print(distance)
+        if distance<0.5:
+            while True:
+                x=self.occupancy_field.map_width*np.random.random()*self.occupancy_field.map_resolution+self.occupancy_field.map_origin_x
+                y=self.occupancy_field.map_height*np.random.random()*self.occupancy_field.map_resolution+self.occupancy_field.map_origin_y
+                dx = x-self.current_odom_xy_theta[1]
+                dy = y-self.current_odom_xy_theta[0]
+                distance = math.sqrt(dx**2+dy**2)
+                new_dir = math.atan2(x-self.current_odom_xy_theta[0],y-self.current_odom_xy_theta[1])
+                # print(f"{x},{y},dir:{self.current_odom_xy_theta[2]},{new_dir}")
+                direction_difference = abs(new_dir-self.current_odom_xy_theta[2])
+                if self.rrt.occ_grid.get_closest_obstacle_distance(x,y)>self.rrt.thresh and direction_difference<0.5 and distance>1:
+                    self.rrt.goal_pos = Point32(x=x,y=y)
+                    print(f"New Goal: {self.rrt.goal_pos}")
+                    break
+
+    def drive(self):
+        if self.rrt.path_updated:
+            self.last_index=0
+            self.rrt.path_updated = False
+        waypoints = self.rrt.path
+        distances = []
+        dts = []
+        for wp in waypoints:
+            dx = wp.x-self.current_odom_xy_theta[0]
+            dy = wp.y-self.current_odom_xy_theta[1]
+            dt = self.current_odom_xy_theta[2]-math.atan2(dy,dx)
+            distances.append(math.sqrt(dx**2+dy**2)+abs(dt)/3)
+            dts.append(dt)
+        index = distances.index(min(distances[self.last_index:]))
+        direction = dts[index]
+        self.last_index = index
+        cmd_vel = Twist()
+        cmd_vel.linear.x = float(0.4)
+        cmd_vel.angular.z = float(-direction)
+        self.drive_pub.publish(cmd_vel)
+
+
     def scan_received(self, msg):
         self.last_scan_timestamp = msg.header.stamp
         # we throw away scans until we are done processing the previous scan

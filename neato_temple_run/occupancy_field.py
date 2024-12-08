@@ -21,21 +21,23 @@ class OccupancyField(object):
         self.occ_pub = node.create_publisher(OccupancyGrid, "occupancy_grid",10)
         self.timer = node.create_timer(0.1, self.publish_occupancy_grid)
         # grab the map
-        self.map_width = 100
-        self.map_height = 100
+        self.map_width = 200
+        self.map_height = 200
         self.map_resolution = 0.05
-        self.map_origin_x = 0.0
-        self.map_origin_y = 0.0
+        self.map_origin_x = -self.map_width/2*self.map_resolution
+        self.map_origin_y = -self.map_height/2*self.map_resolution
         self.total_size = self.map_width*self.map_height
         self.updated = False
+        self.offset = 0.4
         self.build()
-        self.timer = node.create_timer(2, self.build)
+        # self.timer = node.create_timer(2, self.build)
         
         
 
     def build(self):
         self.map_data = np.zeros((self.total_size))
-        random_indices = np.int64(np.random.random_sample((np.random.random_integers(1,100)))*self.total_size)
+        # random_indices = np.int64(np.random.random_sample((np.random.random_integers(1,100)))*self.total_size)
+        random_indices = np.int64(np.random.random_sample(20)*self.total_size)
         self.map_data[random_indices] = 1
         self.node.get_logger().info("map received width: {0} height: {1}".format(self.map_width, self.map_height))
         # The coordinates of each grid cell in the map
@@ -139,5 +141,5 @@ class OccupancyField(object):
         msg.info.origin.position.y = self.map_origin_y
         msg.header.stamp = self.node.last_scan_timestamp or Time()
         msg.header.frame_id = "odom"
-        msg.data = np.reshape((100*(self.closest_occ<=0.2)).astype('int8'),-1).tolist()
+        msg.data = np.reshape((100*(self.closest_occ<=self.offset)).astype('int8'),-1).tolist()
         self.occ_pub.publish(msg)
