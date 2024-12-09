@@ -98,13 +98,19 @@ class ParticleFilter(Node):
         self.d_thresh = 0.2             # the amount of linear movement before performing an update
         self.a_thresh = math.pi/6       # the amount of angular movement before performing an update
 
+        self.heading = 0
+        self.last_heading = 0
+        self.p = 0
+        self.i = 0
+        self.d = 0
+
     def loop_wrapper(self):
         """ This function takes care of calling the run_loop function repeatedly.
             We are using a separate thread to run the loop_wrapper to work around
             issues with single threaded executors in ROS2 """
         while True:
             self.run_loop()
-            time.sleep(0.1)
+            time.sleep(1/40)
 
     def run_loop(self):
         """ This is the main run_loop of our particle filter.  It checks to see if
@@ -113,30 +119,27 @@ class ParticleFilter(Node):
             
             You do not need to modify this function, but it is helpful to understand it.
         """
-        if self.scan_to_process is None:
-            return
-        msg = self.scan_to_process
         
         (new_pose, delta_t) = self.transform_helper.get_matching_odom_pose(self.odom_frame,
-                                                                           self.base_frame,
-                                                                           msg.header.stamp)
+                                                                           self.base_frame,0)
         if new_pose is None:
             # we were unable to get the pose of the robot corresponding to the scan timestamp
-            if delta_t is not None and delta_t < Duration(seconds=0.0):
-                # we will never get this transform, since it is before our oldest one
-                self.scan_to_process = None
             return
         
-        (r, theta) = self.transform_helper.convert_scan_to_polar_in_robot_frame(msg, self.base_frame)
-        # print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
-        # clear the current scan so that we can process the next one
-        self.scan_to_process = None
-
         self.odom_pose = new_pose
         new_odom_xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         # print("x: {0}, y: {1}, yaw: {2}".format(*new_odom_xy_theta))
 
         self.current_odom_xy_theta = new_odom_xy_theta
+        
+        if self.scan_to_process is None:
+            return
+        msg = self.scan_to_process
+        (r, theta) = self.transform_helper.convert_scan_to_polar_in_robot_frame(msg, self.base_frame)
+        # print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
+        # clear the current scan so that we can process the next one
+        self.scan_to_process = None
+
 
         # self.drive()
         # self.reset_goal()
@@ -168,6 +171,9 @@ class ParticleFilter(Node):
                     break
                 counter+=1
             self.rrt.trigger_quick = True
+            self.p = 0
+            self.i = 0
+            self.d = 0
 
     def drive(self):
         if self.rrt.path_updated:
@@ -181,7 +187,7 @@ class ParticleFilter(Node):
                 dx = wp.x-self.current_odom_xy_theta[0]
                 dy = wp.y-self.current_odom_xy_theta[1]
                 # print(f"fd{math.atan2(dy,dx)}")
-                dt = math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2]))-math.atan2(dy,dx)
+                dt = math.atan2(dy,dx)-math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2]))
                 dts.append(dt)
                 dt = abs(dt)
                 # print(dt)
@@ -193,14 +199,27 @@ class ParticleFilter(Node):
             
             index = distances.index(min(distances[self.last_index:]))
             if math.isinf(distances[index]):
-                index = min(2,len(distances)-1)
+                index = min(3,len(distances)-1)
             self.wp = waypoints[index]
             self.chosen_dir = self.directions[index]
             direction = dts[index]
             self.last_index = index
+
+            self.heading = math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2]))
+            self.p = direction
+            kp = 0.5
+            self.i += direction
+            ki = 0.05
+            self.d = self.heading-self.last_heading
+            kd = 0.05
+            self.last_heading = self.heading
+
+            control_out = kp*self.p+ki*self.i+kd*self.d
+
+            print(control_out)
             cmd_vel = Twist()
-            cmd_vel.linear.x = float(max(0,1.25-abs(direction)))
-            cmd_vel.angular.z = float(-direction)
+            cmd_vel.linear.x = float(max(0,0.5-abs(control_out)))
+            cmd_vel.angular.z = float(control_out)
             self.drive_pub.publish(cmd_vel)
             # print("Publish Drive")
 

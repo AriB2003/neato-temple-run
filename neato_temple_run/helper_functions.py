@@ -144,17 +144,18 @@ class TFHelper(object):
 
             returns: a tuple where the first element is the stamped transform and the second element is the
                      delta in time between the requested time and the most recent transform available """
-        if self.tf_buffer.can_transform(odom_frame, base_frame, timestamp):
-            # we can get the pose at the exact right time
-            return (stamped_transform_to_pose(self.tf_buffer.lookup_transform(odom_frame, base_frame, timestamp)), Duration(seconds=0.0))
-        elif self.tf_buffer.can_transform(odom_frame,
+        # if self.tf_buffer.can_transform(odom_frame, base_frame, timestamp):
+        #     # we can get the pose at the exact right time
+        #     return (stamped_transform_to_pose(self.tf_buffer.lookup_transform(odom_frame, base_frame, timestamp)), Duration(seconds=0.0))
+        if self.tf_buffer.can_transform(odom_frame,
                                           base_frame,
                                           Time()):
-            most_recent = self.tf_buffer.lookup_transform(odom_frame,
+            most_recent = stamped_transform_to_pose(self.tf_buffer.lookup_transform(odom_frame,
                                                           base_frame,
-                                                          Time())
-            delta_t = Time.from_msg(timestamp) - Time.from_msg(most_recent.header.stamp)
-            return (None, delta_t)
+                                                          Time()))
+            # delta_t = Time.from_msg(timestamp) - Time.from_msg(most_recent.header.stamp)
+            delta_t = timestamp
+            return (most_recent, delta_t)
         else:
             return (None, None)
 
