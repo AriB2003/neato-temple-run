@@ -21,6 +21,7 @@ class OccupancyField(object):
         self.occ_pub = node.create_publisher(OccupancyGrid, "occupancy_grid",10)
         self.timer = node.create_timer(0.1, self.publish_occupancy_grid)
         # grab the map
+        self.number_of_obstacles = 50
         self.map_width = 200
         self.map_height = 200
         self.map_resolution = 0.05
@@ -37,7 +38,7 @@ class OccupancyField(object):
     def build(self):
         self.map_data = np.zeros((self.total_size))
         # random_indices = np.int64(np.random.random_sample((np.random.random_integers(1,100)))*self.total_size)
-        random_indices = np.int64(np.random.random_sample(20)*self.total_size)
+        random_indices = np.int64(np.random.random_sample(self.number_of_obstacles)*self.total_size)
         self.map_data[random_indices] = 1
         self.node.get_logger().info("map received width: {0} height: {1}".format(self.map_width, self.map_height))
         # The coordinates of each grid cell in the map

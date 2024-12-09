@@ -146,7 +146,7 @@ class ParticleFilter(Node):
         dy = self.rrt.goal_pos.y-self.current_odom_xy_theta[1]
         distance = math.sqrt(dx**2+dy**2)
         print(f"Distance to Goal: {distance}")
-        if distance<0.5:
+        if distance<1.5:
             counter = 0
             while True:
                 x=self.occupancy_field.map_width*np.random.random()*self.occupancy_field.map_resolution+self.occupancy_field.map_origin_x
@@ -159,7 +159,7 @@ class ParticleFilter(Node):
                 direction_difference = abs(new_dir-math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2])))
                 self.rrt.valid_goal = False
                 self.rrt.goal_pos = Point32(x=x,y=y)
-                if self.rrt.occ_grid.get_closest_obstacle_distance(y,x)>1.5*self.rrt.thresh and (direction_difference<1 or counter>100) and 1<distance<3:
+                if self.rrt.occ_grid.get_closest_obstacle_distance(y,x)>1.5*self.rrt.thresh and (direction_difference<1 or counter>100) and 2<distance<5:
                     self.rrt.goal_pos = Point32(x=x,y=y)
                     self.rrt.valid_goal = True
                     print(f"New Goal: {self.rrt.goal_pos}")
@@ -167,7 +167,7 @@ class ParticleFilter(Node):
                         print("Failsafe")
                     break
                 counter+=1
-            self.rrt.trigger = True
+            self.rrt.trigger_quick = True
 
     def drive(self):
         if self.rrt.path_updated:
@@ -186,18 +186,20 @@ class ParticleFilter(Node):
                 dt = abs(dt)
                 # print(dt)
                 dis = math.sqrt(dx**2+dy**2)
-                if dt<math.pi/3 and dis>0.4:
+                if dis>0.3 and dt<math.pi*0.75:
                     distances.append(dis+dt)
                 else:
                     distances.append(math.inf)
-                
+            
             index = distances.index(min(distances[self.last_index:]))
+            if math.isinf(distances[index]):
+                index = min(2,len(distances)-1)
             self.wp = waypoints[index]
             self.chosen_dir = self.directions[index]
             direction = dts[index]
             self.last_index = index
             cmd_vel = Twist()
-            cmd_vel.linear.x = float(max(0,1-abs(direction)))
+            cmd_vel.linear.x = float(max(0,1.25-abs(direction)))
             cmd_vel.angular.z = float(-direction)
             self.drive_pub.publish(cmd_vel)
             # print("Publish Drive")

@@ -72,7 +72,10 @@ class RRT(object):
         self.path = []
         self.directions = []
         self.path_updated = False
-        self.trigger = False
+        self.trigger_quick = False
+        self.trigger_long = False
+        self.first = False
+        self.success = False
         self.depth = 100
 
         thread = Thread(target=self.loop_wrapper)
@@ -83,14 +86,23 @@ class RRT(object):
             We are using a separate thread to run the loop_wrapper to work around
             issues with single threaded executors in ROS2 """
         while True:
-            if self.trigger:
-                self.depth = 200
+            if self.trigger_quick:
+                self.depth = 2000
+                self.step = 1
+                self.trigger_quick = False
+                self.first = True
                 self.rrt()
-                self.trigger = False
-            else:
+                self.first = False
+                self.trigger_long = True
+            if self.trigger_long:
+                self.trigger_long = False
                 self.depth = 1000
-                self.rrt()
-            time.sleep(0.1)
+                self.step = 0.3
+                self.success = False
+                while not self.success and not self.trigger_quick:
+                    self.rrt()
+                    time.sleep(0.1)
+            time.sleep(0.01)
 
     def rrt(self):
         if not self.valid_goal:
@@ -105,6 +117,8 @@ class RRT(object):
             self.tree = [TreeNode(self.start_pos, None, self.start_dir)]
             counter = 0
             for i in range(self.depth):
+                if self.trigger_quick:
+                    return
                 if closest_index[1]<self.tolerance:
                     chosen_idx = int(sp.norm.rvs(loc = 0.5*len(self.tree), scale = len(self.tree)/2))
                 else:
@@ -113,7 +127,7 @@ class RRT(object):
                 goal_dir_x = self.goal_pos.x-parent.pos.x
                 goal_dir_y = self.goal_pos.y-parent.pos.y
                 goal_dir = math.atan2(goal_dir_y, goal_dir_x)
-                if self.trigger:
+                if self.first:
                     chosen_dir = sp.norm.rvs(loc = goal_dir, scale = 1)
                 else:
                     chosen_dir = sp.norm.rvs(loc = (goal_dir+parent.dir)/2, scale = 1)
@@ -128,15 +142,20 @@ class RRT(object):
                     distance = math.sqrt((self.goal_pos.x-new_x)**2+(self.goal_pos.y-new_y)**2)
                     if distance<closest_index[1]:
                         closest_index=[counter,distance]
+                        if distance<self.tolerance:
+                            break
             if closest_index[1]<self.tolerance:
                 self.rewire_tree()
+                if self.trigger_quick:
+                    return
                 self.directions = []
                 print(f"tree: {len(self.tree)},index: {closest_index[0]}")
                 self.path = self.extract_path(self.tree[closest_index[0]])
                 self.directions.reverse()
-                self.path_updated = True
                 self.node.path = self.path
+                self.path_updated = True
                 self.node.directions = self.directions
+                self.success = True
                 # print(len(self.path))
                 # break
             self.occ_grid.updated = False
@@ -150,6 +169,8 @@ class RRT(object):
         
     def rewire_tree(self):
         for treenode in self.tree[::-1]:
+            if self.trigger_quick:
+                    return
             if treenode.par is not None:
                 neigh, weigh, deigh = self.find_neighbors_distance(treenode)
                 yeigh = [m for m,n in zip(weigh,deigh)]
@@ -237,10 +258,10 @@ class RRT(object):
         msg.scale.y = 0.1  # Head diameter
         msg.scale.z = 0.1  # Head length
 
-        msg.pose.position = Point(x=self.start_pos.x, y=self.start_pos.y)
+        msg.pose.position = Point(x=self.node.current_odom_xy_theta[0], y=self.node.current_odom_xy_theta[1])
 
         # Specify the start and end points of the vector
-        q = quaternion_from_euler(0,0,math.atan2(self.goal_pos.y-self.start_pos.y,self.goal_pos.x-self.start_pos.x))
+        q = quaternion_from_euler(0,0,math.atan2(self.goal_pos.y-self.node.current_odom_xy_theta[1],self.goal_pos.x-self.node.current_odom_xy_theta[0]))
         msg.pose.orientation.x = q[0]
         msg.pose.orientation.y = q[1]
         msg.pose.orientation.z = q[2]
@@ -252,7 +273,7 @@ class RRT(object):
         self.goal_dir_pub.publish(msg)
 
         # Specify the start and end points of the vector
-        q = quaternion_from_euler(0,0,self.start_dir)
+        q = quaternion_from_euler(0,0,math.atan2(math.sin(self.node.current_odom_xy_theta[2]),math.cos(self.node.current_odom_xy_theta[2])))
         msg.pose.orientation.x = q[0]
         msg.pose.orientation.y = q[1]
         msg.pose.orientation.z = q[2]
