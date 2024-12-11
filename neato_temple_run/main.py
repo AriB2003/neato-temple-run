@@ -3,6 +3,7 @@
 """ This is the starter code for the robot localization project """
 
 import rclpy
+import copy
 from threading import Thread
 # from rclpy.time import Time
 from rclpy.node import Node
@@ -72,9 +73,11 @@ class ParticleFilter(Node):
         self.current_odom_xy_theta = [0.0,0.0,0.0]
         self.occupancy_field = OccupancyField(self)
         self.transform_helper = TFHelper(self)
-        self.rrt = RRT(self, self.occupancy_field)
-        self.path = []
-        self.directions = []
+        self.number = 2
+        for i in range(self.number):
+            setattr(self,"rrt"+str(i), RRT(self, self.occupancy_field, str(i)))
+            setattr(self,"path"+str(i), [Point32(x=0.0,y=0.0)])
+            setattr(self,"directions"+str(i), [0])
         self.last_index = 0
         self.control_out = 0
 
@@ -122,43 +125,59 @@ class ParticleFilter(Node):
 
         self.current_odom_xy_theta = new_odom_xy_theta
             
+    def shift(self, attr):
+        for i in range(self.number-1):
+            setattr(self, attr+str(i), getattr(self, attr+str(i+1)))
+            if attr=="rrt":
+                setattr(getattr(self, attr+str(i)),"designator",str(i))
+        if attr=="rrt":
+            obj = RRT(self, self.occupancy_field, str(self.number-1))
+        else:
+            obj = []
+        setattr(self, attr+str(self.number-1), obj)
+
     def reset_goal(self):
-        dx = self.rrt.goal_pos.x-self.current_odom_xy_theta[0]
-        dy = self.rrt.goal_pos.y-self.current_odom_xy_theta[1]
+        dx = self.rrt0.goal_pos.x-self.current_odom_xy_theta[0]
+        dy = self.rrt0.goal_pos.y-self.current_odom_xy_theta[1]
         distance = math.sqrt(dx**2+dy**2)
         print(f"Distance to Goal: {distance}")
-        if distance<1.5:
+        if distance<1:
+            self.shift("rrt")
+            self.shift("path")
+            self.shift("directions")
             counter = 0
             while True:
                 x=self.occupancy_field.map_width*np.random.random()*self.occupancy_field.map_resolution+self.occupancy_field.map_origin_x
                 y=self.occupancy_field.map_height*np.random.random()*self.occupancy_field.map_resolution+self.occupancy_field.map_origin_y
-                dx = x-self.current_odom_xy_theta[0]
-                dy = y-self.current_odom_xy_theta[1]
+                dx = x-self.path0[-1].x
+                dy = y-self.path0[-1].y
                 distance = math.sqrt(dx**2+dy**2)
-                new_dir = math.atan2(y-self.current_odom_xy_theta[1],x-self.current_odom_xy_theta[0])
+                new_dir = math.atan2(y-self.path0[-1].y,x-self.path0[-1].x)
                 # print(f"{x},{y},dir:{self.current_odom_xy_theta[2]},{new_dir}")
-                direction_difference = abs(new_dir-math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2])))
-                self.rrt.valid_goal = False
-                self.rrt.goal_pos = Point32(x=x,y=y)
-                if self.rrt.occ_grid.get_closest_obstacle_distance(y,x)>1.5*self.rrt.thresh and (direction_difference<1 or counter>100) and 2<distance<5:
-                    self.rrt.goal_pos = Point32(x=x,y=y)
-                    self.rrt.valid_goal = True
-                    print(f"New Goal: {self.rrt.goal_pos}")
+                direction_difference = abs(new_dir-self.directions0[-1])
+                self.rrt1.valid_goal = False
+                self.rrt1.goal_pos = Point32(x=x,y=y)
+                if self.rrt1.occ_grid.get_closest_obstacle_distance(y,x)>1.5*self.rrt1.thresh and (direction_difference<1 or counter>100) and 2<distance<5:
+                    self.rrt1.goal_pos = Point32(x=x,y=y)
+                    self.rrt1.valid_goal = True
+                    print(f"New Goal: {self.rrt1.goal_pos}")
                     if counter>100:
                         print("Failsafe")
                     break
                 counter+=1
-            self.rrt.trigger_quick = True
+            self.rrt1.start_pos = Point32(x=self.path0[-1].x,y=self.path0[-1].y)
+            self.rrt1.start_dir = self.directions0[-1]
+            self.rrt1.trigger_quick = True
             self.p = 0
             self.i = 0
             self.d = 0
 
     def drive(self):
-        if self.rrt.path_updated:
+        if self.rrt0.path_updated:
             self.last_index=0
-            self.rrt.path_updated = False
-        if self.path:
-            waypoints = self.path
+            self.rrt0.path_updated = False
+        if self.path0:
+            waypoints = self.path0
             distances = []
             dts = []
             for wp in waypoints:
@@ -181,7 +200,7 @@ class ParticleFilter(Node):
             else:
                 self.last_index = index
             self.wp = waypoints[index]
-            self.chosen_dir = self.directions[index]
+            self.chosen_dir = self.directions0[index]
             direction = dts[index]
 
             self.heading = math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2]))

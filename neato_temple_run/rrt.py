@@ -44,19 +44,20 @@ class RRT(object):
             the closest obstacle
     """
 
-    def __init__(self, node, occ_grid):
+    def __init__(self, node, occ_grid, designator):
         self.node = node
+        self.designator = designator
         self.occ_grid = occ_grid
         self.resolution = self.occ_grid.map_resolution
         self.start_pos = Point32(x=0.0,y=0.0)
         self.start_dir = 0.0
         self.goal_pos = Point32(x=0.0,y=0.0)
         self.valid_goal = False
-        self.path_pub = self.node.create_publisher(PolygonStamped, "path",10)
-        self.goal_pub = self.node.create_publisher(PointStamped, "goal",10)
-        self.tree_pub = self.node.create_publisher(PointCloud, "tree",10)
-        self.goal_dir_pub = self.node.create_publisher(Marker, "goal_dir",10)
-        self.curr_dir_pub = self.node.create_publisher(Marker, "curr_dir",10)
+        self.path_pub = self.node.create_publisher(PolygonStamped, "path"+self.designator,10)
+        self.goal_pub = self.node.create_publisher(PointStamped, "goal"+self.designator,10)
+        self.tree_pub = self.node.create_publisher(PointCloud, "tree"+self.designator,10)
+        self.goal_dir_pub = self.node.create_publisher(Marker, "goal_dir"+self.designator,10)
+        self.curr_dir_pub = self.node.create_publisher(Marker, "curr_dir"+self.designator,10)
 
         self.tree = []
         self.tolerance = 0.2
@@ -107,8 +108,8 @@ class RRT(object):
     def rrt(self):
         if not self.valid_goal:
             return
-        self.start_pos = Point32(x=self.node.current_odom_xy_theta[0],y=self.node.current_odom_xy_theta[1])
-        self.start_dir = math.atan2(math.sin(self.node.current_odom_xy_theta[2]),math.cos(self.node.current_odom_xy_theta[2]))
+        # self.start_pos = Point32(x=self.node.current_odom_xy_theta[0],y=self.node.current_odom_xy_theta[1])
+        # self.start_dir = math.atan2(math.sin(self.node.current_odom_xy_theta[2]),math.cos(self.node.current_odom_xy_theta[2]))
         closest_index = [0,math.inf]
         print(f"Current Odom: {self.node.current_odom_xy_theta}")
         print(f"Start Dir: {self.start_dir}")
@@ -152,9 +153,9 @@ class RRT(object):
                 print(f"tree: {len(self.tree)},index: {closest_index[0]}")
                 self.path = self.extract_path(self.tree[closest_index[0]])
                 self.directions.reverse()
-                self.node.path = self.path
+                setattr(self.node,"path"+self.designator, self.path)
                 self.path_updated = True
-                self.node.directions = self.directions
+                setattr(self.node, "directions"+self.designator, self.directions)
                 self.success = True
                 # print(len(self.path))
                 # break
