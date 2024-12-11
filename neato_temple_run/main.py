@@ -126,15 +126,16 @@ class ParticleFilter(Node):
         self.current_odom_xy_theta = new_odom_xy_theta
             
     def shift(self, attr):
+        left_most = getattr(self, attr+"0")
         for i in range(self.number-1):
             setattr(self, attr+str(i), getattr(self, attr+str(i+1)))
             if attr=="rrt":
                 setattr(getattr(self, attr+str(i)),"designator",str(i))
+                getattr(self, attr+str(i)).create_publishers()
+        setattr(self, attr+str(self.number-1), left_most)
         if attr=="rrt":
-            obj = RRT(self, self.occupancy_field, str(self.number-1))
-        else:
-            obj = []
-        setattr(self, attr+str(self.number-1), obj)
+            setattr(left_most, "designator",str(self.number-1))
+            left_most.create_publishers()
 
     def reset_goal(self):
         dx = self.rrt0.goal_pos.x-self.current_odom_xy_theta[0]

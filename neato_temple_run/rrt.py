@@ -53,11 +53,8 @@ class RRT(object):
         self.start_dir = 0.0
         self.goal_pos = Point32(x=0.0,y=0.0)
         self.valid_goal = False
-        self.path_pub = self.node.create_publisher(PolygonStamped, "path"+self.designator,10)
-        self.goal_pub = self.node.create_publisher(PointStamped, "goal"+self.designator,10)
-        self.tree_pub = self.node.create_publisher(PointCloud, "tree"+self.designator,10)
-        self.goal_dir_pub = self.node.create_publisher(Marker, "goal_dir"+self.designator,10)
-        self.curr_dir_pub = self.node.create_publisher(Marker, "curr_dir"+self.designator,10)
+
+        self.create_publishers()
 
         self.tree = []
         self.tolerance = 0.2
@@ -81,6 +78,13 @@ class RRT(object):
 
         thread = Thread(target=self.loop_wrapper)
         thread.start()
+
+    def create_publishers(self):
+        self.path_pub = self.node.create_publisher(PolygonStamped, "path"+self.designator,10)
+        self.goal_pub = self.node.create_publisher(PointStamped, "goal"+self.designator,10)
+        self.tree_pub = self.node.create_publisher(PointCloud, "tree"+self.designator,10)
+        self.goal_dir_pub = self.node.create_publisher(Marker, "goal_dir"+self.designator,10)
+        self.curr_dir_pub = self.node.create_publisher(Marker, "curr_dir"+self.designator,10)
 
     def loop_wrapper(self):
         """ This function takes care of calling the run_loop function repeatedly.
