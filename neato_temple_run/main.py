@@ -55,7 +55,6 @@ class ParticleFilter(Node):
         self.scan_topic = "scan"        # the topic where we will get laser scans from 
 
 
-        self.particle_cloud = []
         self.wp = Point32()
         self.chosen_dir = 0
         # publish the current particle cloud.  This enables viewing particles in rviz.
@@ -63,22 +62,12 @@ class ParticleFilter(Node):
         self.drive_pub = self.create_publisher(Twist, "cmd_vel", 40)
         self.wp_pub = self.create_publisher(PointStamped, "next_wp", 10)
         self.wp_dir_pub = self.create_publisher(Marker, "wp_dir", 10)
+        self.control_pub = self.create_publisher(Marker, "control", 40)
         self.timer = self.create_timer(0.1, self.publish_wp)
         self.timer2 = self.create_timer(0.1, self.publish_wp_dir)
         self.timer3 = self.create_timer(1/40, self.drive)
+        self.timer5 = self.create_timer(1/40, self.publish_control)
         self.timer4 = self.create_timer(0.1, self.reset_goal)
-
-        # laser_subscriber listens for data from the lidar
-        self.create_subscription(LaserScan, self.scan_topic, self.scan_received, 10)
-
-        # this is used to keep track of the timestamps coming from bag files
-        # knowing this information helps us set the timestamp of our map -> odom
-        # transform correctly
-        self.last_scan_timestamp = None
-        # this is the current scan that our run_loop should process
-        self.scan_to_process = None
-        # your particle cloud will go here
-        
 
         self.current_odom_xy_theta = [0.0,0.0,0.0]
         self.occupancy_field = OccupancyField(self)
@@ -87,6 +76,7 @@ class ParticleFilter(Node):
         self.path = []
         self.directions = []
         self.last_index = 0
+        self.control_out = 0
 
         # we are using a thread to work around single threaded execution bottleneck
         thread = Thread(target=self.loop_wrapper)
@@ -131,18 +121,6 @@ class ParticleFilter(Node):
         # print("x: {0}, y: {1}, yaw: {2}".format(*new_odom_xy_theta))
 
         self.current_odom_xy_theta = new_odom_xy_theta
-        
-        if self.scan_to_process is None:
-            return
-        msg = self.scan_to_process
-        (r, theta) = self.transform_helper.convert_scan_to_polar_in_robot_frame(msg, self.base_frame)
-        # print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
-        # clear the current scan so that we can process the next one
-        self.scan_to_process = None
-
-
-        # self.drive()
-        # self.reset_goal()
             
     def reset_goal(self):
         dx = self.rrt.goal_pos.x-self.current_odom_xy_theta[0]
@@ -200,56 +178,41 @@ class ParticleFilter(Node):
             index = distances.index(min(distances[self.last_index:]))
             if math.isinf(distances[index]):
                 index = min(self.last_index+2,len(distances)-1)
+            else:
+                self.last_index = index
             self.wp = waypoints[index]
             self.chosen_dir = self.directions[index]
             direction = dts[index]
-            self.last_index = index
 
             self.heading = math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2]))
             self.p = direction
-            kp = 0.5
+            kp = 2
             self.i += direction
             ki = 0.0
-            self.d = self.heading-self.last_heading
+            self.d = math.atan2(math.sin(self.heading-self.last_heading),math.cos(self.heading-self.last_heading))
             kd = 0.0
             self.last_heading = self.heading
 
-            control_out = kp*self.p+ki*self.i+kd*self.d
+            self.control_out = kp*self.p+ki*self.i+kd*self.d
 
-            print(control_out)
+            print(self.control_out)
             cmd_vel = Twist()
-            cmd_vel.linear.x = float(max(0,0.5-abs(control_out)))
-            cmd_vel.angular.z = float(control_out)
+            cmd_vel.linear.x = float(max(0,0.5))
+            cmd_vel.angular.z = float(self.control_out)
             self.drive_pub.publish(cmd_vel)
             # print("Publish Drive")
-
-
-    def scan_received(self, msg):
-        self.last_scan_timestamp = msg.header.stamp
-        # we throw away scans until we are done processing the previous scan
-        # self.scan_to_process is set to None in the run_loop 
-        if self.scan_to_process is None:
-            self.scan_to_process = msg
-
-    def publish_particles(self, timestamp):
-        msg = ParticleCloud()
-        msg.header.frame_id = self.map_frame
-        msg.header.stamp = timestamp
-        for p in self.particle_cloud:
-            msg.particles.append(Nav2Particle(pose=p.as_pose(), weight=p.w))
-        self.particle_pub.publish(msg)
 
     def publish_wp(self):
         msg = PointStamped()
         msg.point = Point(x=self.wp.x, y=self.wp.y)
-        msg.header.stamp = self.last_scan_timestamp or Time()
+        msg.header.stamp = Time()
         msg.header.frame_id = "odom"
         self.wp_pub.publish(msg)
 
     def publish_wp_dir(self):
         msg = Marker()
         msg.header.frame_id = 'odom'
-        msg.header.stamp = self.last_scan_timestamp or Time()
+        msg.header.stamp = Time()
         msg.type = Marker.ARROW
         msg.action = Marker.ADD
 
@@ -269,6 +232,32 @@ class ParticleFilter(Node):
         msg.color.r = 1.0
         msg.color.g = 1.0
         msg.color.b = 0.0
+        msg.color.a = 1.0        
+        self.wp_dir_pub.publish(msg)
+
+    def publish_control(self):
+        msg = Marker()
+        msg.header.frame_id = 'odom'
+        msg.header.stamp = Time()
+        msg.type = Marker.ARROW
+        msg.action = Marker.ADD
+
+        # Customize the appearance
+        msg.scale.x = 0.5  # Shaft diameter
+        msg.scale.y = 0.1  # Head diameter
+        msg.scale.z = 0.1  # Head length
+
+        msg.pose.position = Point(x=self.current_odom_xy_theta[0], y=self.current_odom_xy_theta[1])
+
+        # Specify the start and end points of the vector
+        q = quaternion_from_euler(0,0,self.current_odom_xy_theta[2]+1.5*self.control_out)
+        msg.pose.orientation.x = q[0]
+        msg.pose.orientation.y = q[1]
+        msg.pose.orientation.z = q[2]
+        msg.pose.orientation.w = q[3]
+        msg.color.r = 0.0
+        msg.color.g = 1.0
+        msg.color.b = 1.0
         msg.color.a = 1.0        
         self.wp_dir_pub.publish(msg)
 

@@ -140,7 +140,7 @@ class OccupancyField(object):
         msg.info.height = self.map_height
         msg.info.origin.position.x = self.map_origin_x
         msg.info.origin.position.y = self.map_origin_y
-        msg.header.stamp = self.node.last_scan_timestamp or Time()
+        msg.header.stamp = Time()
         msg.header.frame_id = "odom"
         msg.data = np.reshape((100*(self.closest_occ<=self.offset)).astype('int8'),-1).tolist()
         self.occ_pub.publish(msg)

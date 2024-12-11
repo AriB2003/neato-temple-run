@@ -227,7 +227,7 @@ class RRT(object):
 
     def publish_tree(self):
         msg = PointCloud()
-        msg.header.stamp = self.node.last_scan_timestamp or Time()
+        msg.header.stamp = Time()
         msg.header.frame_id = "odom"
         msg.points = [p.return_point32() for p in self.tree]
         self.tree_pub.publish(msg)
@@ -235,21 +235,21 @@ class RRT(object):
     def publish_path(self):
         msg = PolygonStamped()
         msg.polygon.points = self.path
-        msg.header.stamp = self.node.last_scan_timestamp or Time()
+        msg.header.stamp = Time()
         msg.header.frame_id = "odom"
         self.path_pub.publish(msg)
 
     def publish_goal(self):
         msg = PointStamped()
         msg.point = Point(x=self.goal_pos.x,y=self.goal_pos.y)
-        msg.header.stamp = self.node.last_scan_timestamp or Time()
+        msg.header.stamp = Time()
         msg.header.frame_id = "odom"
         self.goal_pub.publish(msg)
 
     def publish_dirs(self):
         msg = Marker()
         msg.header.frame_id = 'odom'
-        msg.header.stamp = self.node.last_scan_timestamp or Time()
+        msg.header.stamp = Time()
         msg.type = Marker.ARROW
         msg.action = Marker.ADD
 
@@ -261,7 +261,7 @@ class RRT(object):
         msg.pose.position = Point(x=self.node.current_odom_xy_theta[0], y=self.node.current_odom_xy_theta[1])
 
         # Specify the start and end points of the vector
-        q = quaternion_from_euler(0,0,math.atan2(self.goal_pos.y-self.node.current_odom_xy_theta[1],self.goal_pos.x-self.node.current_odom_xy_theta[0]))
+        q = quaternion_from_euler(0,0,math.atan2(self.node.wp.y-self.node.current_odom_xy_theta[1],self.node.wp.x-self.node.current_odom_xy_theta[0]))
         msg.pose.orientation.x = q[0]
         msg.pose.orientation.y = q[1]
         msg.pose.orientation.z = q[2]
