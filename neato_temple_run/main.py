@@ -191,7 +191,7 @@ class ParticleFilter(Node):
                 # print(dt)
                 dis = math.sqrt(dx**2+dy**2)
                 if dis>0.5 and dt<math.pi*0.75:
-                    distances.append(dis+dt)
+                    distances.append(dis+dt/3)
                 else:
                     distances.append(math.inf)
             
@@ -206,7 +206,7 @@ class ParticleFilter(Node):
 
             self.heading = math.atan2(math.sin(self.current_odom_xy_theta[2]),math.cos(self.current_odom_xy_theta[2]))
             self.p = direction
-            kp = 2
+            kp = 1
             self.i += direction
             ki = 0.0
             self.d = math.atan2(math.sin(self.heading-self.last_heading),math.cos(self.heading-self.last_heading))
@@ -214,11 +214,11 @@ class ParticleFilter(Node):
             self.last_heading = self.heading
 
             self.control_out = kp*self.p+ki*self.i+kd*self.d
-
             print(self.control_out)
+            
             cmd_vel = Twist()
-            cmd_vel.linear.x = float(max(0,0.5))
-            cmd_vel.angular.z = float(self.control_out)
+            cmd_vel.linear.x = float(max(0,max(0.2,1-abs(self.control_out))))
+            cmd_vel.angular.z = float(max(-2, min(2, self.control_out)))
             self.drive_pub.publish(cmd_vel)
             # print("Publish Drive")
 

@@ -101,7 +101,7 @@ class RRT(object):
                 self.trigger_long = True
             if self.trigger_long:
                 self.trigger_long = False
-                self.depth = 1000
+                self.depth = 5000
                 self.step = 0.3
                 self.success = False
                 while not self.success and not self.trigger_quick:
@@ -135,7 +135,7 @@ class RRT(object):
                 if self.first:
                     chosen_dir = sp.norm.rvs(loc = goal_dir, scale = 1)
                 else:
-                    chosen_dir = sp.norm.rvs(loc = (goal_dir+parent.dir)/2, scale = 1)
+                    chosen_dir = sp.norm.rvs(loc = (goal_dir+2*parent.dir)/3, scale = 1)
                 dir_x = self.step*math.cos(chosen_dir)
                 dir_y = self.step*math.sin(chosen_dir)
                 chosen_dir = math.atan2(dir_y,dir_x)
