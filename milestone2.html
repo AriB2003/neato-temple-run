@@ -1,0 +1,121 @@
+<p>
+    <strong>Pages: <a href="index.html">README</a>, <a href="milestone1.html">Milestone 1</a>, <a href="milestone2.html">Milestone 2</a></strong>
+    </p>
+    <p>
+    <strong>Milestone 2</strong>
+    </p>
+    <p>
+    <strong>Goal</strong>
+    </p>
+    <p>
+        
+    </p>
+    <p>
+    Our project goal is to deploy a Neato runner (and chaser if we have time), optimizing for speed, inspired by the hit game Temple Run. The runner is meant to navigate an unknown environment as fast as possible avoiding collisions. 
+    </p>
+    <p>
+    We originally wanted to have a chaser, which is meant to pursue the runner through that environment and catch it. However, due to the small size of our team, we will be cutting this goal to focus on improving the runner.
+    </p>
+    <p>
+    <strong>Personal Learning Objectives</strong>
+    </p>
+    <p>
+    We would like to:
+    </p>
+    <ol>
+    
+    <li>Implement a path finding algorithm (RRT)</li>
+    
+    <li>Implement an optical flow pipeline (Monocular)</li>
+    
+    <li>Merge LIDAR and visual data to make decisions</li>
+    
+    <li>Make more advanced rviz visualizations for our code</li>
+    </ol>
+    <p>
+    <strong>Algorithm</strong>
+    </p>
+    <ul>
+    
+    <li><strong>Visual pipeline (<a href="https://youtu.be/p8yewKNFZzg">Demo Video</a>)</strong></li> 
+    <ul>
+     
+    <li>Calculate depth map from image</li>
+     
+    <li>Subtract floor gradient to find obstacles</li>
+     
+    <li>Calculate distance, angle to obstacles wrt camera</li>
+     
+    <li>Convert distance, angle to cartesian points in the odom frame</li> 
+    </ul>
+    
+    <li><strong>Path planning (<a href="https://youtu.be/kmCdGZ9nfpU">Demo Video</a>)</strong></li> 
+    <ul>
+     
+    <li>Refine world map</li>
+     
+    <li>Compute RRT path</li>
+     
+    <li>Optimize RRT path</li>
+     
+    <li>Follow the waypoint path</li>
+     
+    <li>If goal is reached, randomize location of next goal</li> 
+    </ul></li> 
+    </ul>
+    <p>
+    <strong>Action Items</strong>
+    </p>
+    <ul>
+    
+    <li>Tune the waypoint following algorithm perhaps using PID (Ari)</li>
+    
+    <li>Feed LIDAR and monocular obstacles into occupancy grid (Chris & Ari)</li>
+    
+    <li>Test the overall experience in hardware (Chris & Ari)</li>
+    
+    <li>Write the project report (Chris & Ari)</li>
+    </ul>
+    <p>
+    <strong>Resources</strong>
+    </p>
+    <ul>
+    
+    <li>Robot path planning (review) <a href="https://arxiv.org/vc/arxiv/papers/1805/1805.08137v1.pdf">1805.08137v1.pdf</a></li>
+    
+    <li>D* <a href="https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=1013481&casa_token=jwGtJefa8aAAAAAA:FGIIJ024HLdBppgE7nynTiaBq4XnjNIrJ0M7z9-JPt2QdNJzlzXrHwVMcBCDYR1wN6kRR0iHAW4">IEEE Xplore Full-Text PDF:</a></li>
+    
+    <li>Rapidly-Exploring Random Trees <a href="https://theclassytim.medium.com/robotic-path-planning-rrt-and-rrt-212319121378">Robotic Path Planning: RRT and RRT* | by Tim Chinenov | Medium</a></li>
+    
+    <li> <a href="https://www.youtube.com/watch?v=_aqwJBx2NFk">RRT* Algorithm Explained</a></li>
+    
+    <li>Depth Map</li> 
+    <ul>
+     
+    <li>Depth Map OpenCV: <a href="https://docs.opencv.org/4.x/dd/d53/tutorial_py_depthmap.html">OpenCV: Depth Map from Stereo Images</a></li>
+     
+    <li><a href="https://medium.com/@patriciogv/the-state-of-the-art-of-depth-estimation-from-single-images-9e245d51a315">Monocular Vision (review)</a></li>
+     
+    <li><a href="https://huggingface.co/docs/transformers/en/model_doc/depth_anything_v2">Depth Anything V2</a></li> 
+    </ul>
+    
+    <li><a href="https://ijdykeman.github.io/slam/2019/04/07/simple-depth-from-motion.html">Simple Depth Estimation from Multiple Images in Tensorflow</a></li>
+    
+    <li><a href="https://learnopencv.com/depth-estimation-using-stereo-matching/">Depth Estimation Using Stereo Matching | LearnOpenCV #</a></li>
+    
+    <li><a href="https://stackoverflow.com/questions/6641055/obstacle-avoidance-with-stereo-vision">Ground plane approaches</a></li>
+    
+    <li><a href="https://ieeexplore.ieee.org/abstract/document/5653055">Ground feature detection</a></li>
+    
+    <li><a href="https://stackoverflow.com/questions/55080775/opencv-calculate-angle-between-camera-and-object">Camera 2D to 3D projection</a></li>
+    
+    <li><a href="https://pastel.hal.science/tel-02285215/file/77151_PINARD_2019_archivage.pdf">Depth consistency </a></li>
+    </ul>
+    <p>
+    <strong>Dependencies</strong>
+    </p>
+    <ul>
+    
+    <li><a href="https://github.com/huggingface/transformers">Transformers</a></li>
+    
+    <li><a href="https://pytorch.org/get-started/locally/">Pytorch</a>

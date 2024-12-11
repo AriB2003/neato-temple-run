@@ -192,14 +192,14 @@ class ParticleFilter(Node):
                 dt = abs(dt)
                 # print(dt)
                 dis = math.sqrt(dx**2+dy**2)
-                if dis>0.3 and dt<math.pi*0.75:
+                if dis>0.5 and dt<math.pi*0.75:
                     distances.append(dis+dt)
                 else:
                     distances.append(math.inf)
             
             index = distances.index(min(distances[self.last_index:]))
             if math.isinf(distances[index]):
-                index = min(3,len(distances)-1)
+                index = min(self.last_index+2,len(distances)-1)
             self.wp = waypoints[index]
             self.chosen_dir = self.directions[index]
             direction = dts[index]
@@ -209,9 +209,9 @@ class ParticleFilter(Node):
             self.p = direction
             kp = 0.5
             self.i += direction
-            ki = 0.05
+            ki = 0.0
             self.d = self.heading-self.last_heading
-            kd = 0.05
+            kd = 0.0
             self.last_heading = self.heading
 
             control_out = kp*self.p+ki*self.i+kd*self.d

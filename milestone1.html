@@ -1,0 +1,91 @@
+<p>
+    <strong>Pages: <a href="index.html">README</a>, <a href="milestone1.html">Milestone 1</a>, <a href="milestone2.html">Milestone 2</a></strong>
+    </p>
+    <p>
+    <strong>Milestone 1</strong>
+    </p>
+    <p>
+    <strong>Goal</strong>
+    </p>
+    <p>
+        
+    </p>
+    <p>
+    Our project goal is to deploy a Neato runner (and chaser if we have time), optimizing for speed, inspired by the hit game Temple Run. The runner is meant to navigate an unknown environment as fast as possible avoiding collisions. The chaser is meant to pursue the runner through that environment and catch it.
+    </p>
+    <p>
+    <strong>Personal Learning Objectives</strong>
+    </p>
+    <p>
+    We would like to:
+    </p>
+    <ol>
+    
+    <li>Implement a path finding algorithm</li>
+    
+    <li>Implement an optical flow pipeline</li>
+    
+    <li>Merge LIDAR and visual data to make decisions</li>
+    
+    <li>Make more advanced rviz visualizations for our code</li>
+    </ol>
+    <p>
+    <strong>Algorithm</strong>
+    </p>
+    <ul>
+    
+    <li>Once odometry threshold is surpassed take an image</li>
+    
+    <li>Feed sequential images into depth map creator</li>
+    
+    <li>Interpret depth map based on odometry</li>
+    
+    <li>Refine world map</li>
+    
+    <li>Recompute D* or RRT path</li>
+    
+    <li>Move a certain amount based on calculation</li>
+    
+    <li>If waypoint is reached, randomize location of next waypoint</li>
+    </ul>
+    <p>
+    <strong>Action Items</strong>
+    </p>
+    <ul>
+    
+    <li>Pick between D* and RRT and find resources for learning implementation (Ari)</li>
+    
+    <li>Make and test an implementation of the path finding algorithm (Ari)</li>
+    
+    <li>Test vision pipeline (Chris)</li> 
+    <ul>
+     
+    <li>Neato compatibility</li> 
+    </ul>
+    
+    <li>Create rviz visualization for the depth map (Chris)</li>
+    </ul>
+    <p>
+    <strong>Resources</strong>
+    </p>
+    <ul>
+    
+    <li>Robot path planning (review) <a href="https://arxiv.org/vc/arxiv/papers/1805/1805.08137v1.pdf">1805.08137v1.pdf</a></li>
+    
+    <li>D* <a href="https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=1013481&casa_token=jwGtJefa8aAAAAAA:FGIIJ024HLdBppgE7nynTiaBq4XnjNIrJ0M7z9-JPt2QdNJzlzXrHwVMcBCDYR1wN6kRR0iHAW4">IEEE Xplore Full-Text PDF:</a></li>
+    
+    <li>Rapidly-Exploring Random Trees <a href="https://theclassytim.medium.com/robotic-path-planning-rrt-and-rrt-212319121378">Robotic Path Planning: RRT and RRT* | by Tim Chinenov | Medium</a></li>
+    
+    <li>Depth Map</li> 
+    <ul>
+     
+    <li>Depth Map OpenCV: <a href="https://docs.opencv.org/4.x/dd/d53/tutorial_py_depthmap.html">OpenCV: Depth Map from Stereo Images</a></li>
+     
+    <li><a href="https://medium.com/@patriciogv/the-state-of-the-art-of-depth-estimation-from-single-images-9e245d51a315">Monocular Vision (review)</a></li>
+     
+    <li><a href="https://huggingface.co/docs/transformers/en/model_doc/depth_anything_v2">Depth Anything V2</a></li> 
+    </ul>
+    
+    <li><a href="https://ijdykeman.github.io/slam/2019/04/07/simple-depth-from-motion.html">Simple Depth Estimation from Multiple Images in Tensorflow</a></li>
+    
+    <li><a href="https://learnopencv.com/depth-estimation-using-stereo-matching/">Depth Estimation Using Stereo Matching | LearnOpenCV #</a>
