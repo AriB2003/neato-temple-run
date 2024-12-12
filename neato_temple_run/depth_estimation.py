@@ -1,19 +1,18 @@
+#!/usr/bin/env python3
+
 import time
 import rclpy
 from threading import Thread
 from rclpy.node import Node
 import time
-from sensor_msgs.msg import Image
-from geometry_msgs.msg import Point32
+from sensor_msgs.msg import Image, PointCloud, LaserScan
+from geometry_msgs.msg import Point32, Twist
 from nav_msgs.msg import Odometry
 from builtin_interfaces.msg import Time
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
-from geometry_msgs.msg import Twist
 from matplotlib import pyplot as plt
-from sensor_msgs.msg import PointCloud
-from sensor_msgs.msg import LaserScan
 
 # need to be changed when importing
 from depth_estimation_single_photo import cv2_wrapper
@@ -107,6 +106,10 @@ class DepthEstimation(Node):
             time.sleep(0.05)  # might not be long enough
 
     def run_loop(self):
+        """
+        Obtains cartesian points from vision,
+        Plots points of interest
+        """
         # NOTE: only do cv2.imshow and cv2.waitKey in this function
         if not self.cv_image is None:
             depth = cv2_wrapper(self.cv_image, 64)
@@ -114,7 +117,7 @@ class DepthEstimation(Node):
             masked_map, mask = identify_obstacles(depth_remove_floor, depth)
             self.cartesian_points_vision, no_points = generate_point_cloud(depth, mask)
             self.cartesian_points_vision /= 100
-            if len(self.cartesian_points_vision.shape) == 1:
+            if no_points:
                 cp = np.array([[0, -100], [0, -200]])
 
             else:
@@ -152,8 +155,12 @@ class DepthEstimation(Node):
             plt.clf()
 
     def publish_monocular_depth_estimates(self):
+        """
+        Publishes cartesian points from vision
+        """
 
         if len(self.cartesian_points_vision.shape) // 2 != 0:
+            # Ensure that it is not empty
 
             msg = PointCloud()
             msg.header.stamp = Time()
@@ -162,17 +169,18 @@ class DepthEstimation(Node):
             self.monocular_depth_pub.publish(msg)
 
     def publish_lidar_depth_estimates(self):
+        """
+        Publishes cartesian points from lidar
+        """
+
         if len(self.cartesian_points_lidar.shape) != 1:
+            # Ensure that it is not empty
+
             msg = PointCloud()
             msg.header.stamp = Time()
             msg.header.frame_id = "odom"
             msg.points = [Point32(x=p[0], y=p[1]) for p in self.cartesian_points_lidar]
             self.lidar_depth_pub.publish(msg)
-
-
-if __name__ == "__main__":
-    node = DepthEstimation("/camera/image_raw")
-    node.run()
 
 
 def main(args=None):

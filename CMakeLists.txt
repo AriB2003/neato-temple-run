@@ -12,6 +12,7 @@ find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -26,6 +27,7 @@ endif()
 
 install(PROGRAMS
         neato_temple_run/main.py
+        neato_temple_run/depth_estimation.py
         DESTINATION lib/${PROJECT_NAME})
 
 
