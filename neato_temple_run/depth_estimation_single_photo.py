@@ -12,7 +12,6 @@ import numpy as np
 from PIL import Image, ImageOps
 import cv2
 
-
 def estimate(image, width, height):
     """
     Processes image,
@@ -75,7 +74,7 @@ if __name__ == "__main__":
     # - pedestrian.jpeg
     # - backpack_2.jpg
     # - skyline.jpg
-    img = cv2.imread("pedestrian.jpeg")
+    img = cv2.imread("Where-We-Fly.jpg")
 
     t0 = time.time()
 
