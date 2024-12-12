@@ -5,6 +5,7 @@ from rclpy.node import Node
 import time
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Point32
+from nav_msgs.msg import Odometry
 from builtin_interfaces.msg import Time
 from cv_bridge import CvBridge
 import cv2
@@ -14,12 +15,14 @@ from matplotlib import pyplot as plt
 from sensor_msgs.msg import PointCloud
 from sensor_msgs.msg import LaserScan
 
-from vision_pipeline.depth_estimation_single_photo import cv2_wrapper
-from vision_pipeline.create_obstacles import (
+# need to be changed when importing
+from depth_estimation_single_photo import cv2_wrapper
+from create_obstacles import (
     remove_depth_floor,
     identify_obstacles,
     generate_point_cloud,
 )
+from angle_helpers import euler_from_quaternion, convert_to_odom
 
 
 class DepthEstimation(Node):
@@ -34,7 +37,11 @@ class DepthEstimation(Node):
 
         self.cartesian_points_vision = np.array([])
         self.cartesian_points_lidar = np.array([])
+        self.x = 0
+        self.y = 0
+        self.theta = 0
 
+        self.create_subscription(Odometry, "odom", self.process_odom, 10)
         self.create_subscription(Image, image_topic, self.process_image, 10)
         self.create_subscription(LaserScan, "scan", self.process_scan, 10)
 
@@ -50,6 +57,22 @@ class DepthEstimation(Node):
         thread = Thread(target=self.loop_wrapper)
         thread.start()
 
+    def process_odom(self, msg: Odometry):
+        """
+        Callback for odometry,
+        - puts self.odom into the form (x,y,theta)
+        """
+        orientation_tuple = (
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w,
+        )
+
+        self.x = msg.pose.pose.position.x
+        self.y = msg.pose.pose.position.y
+        self.theta = euler_from_quaternion(*orientation_tuple)[2]
+
     def process_image(self, msg):
         """Process image messages from ROS and stash them in an attribute
         called cv_image for subsequent processing"""
@@ -62,9 +85,18 @@ class DepthEstimation(Node):
         """
         distances = np.array(msg.ranges)
         angles = np.array(range(361))
+        valid_distances_bool = tuple([distances != np.inf])
+        distances = distances[valid_distances_bool]
+        angles = angles[valid_distances_bool]
+
         x = distances * np.cos(angles * np.pi / 180)
         y = distances * np.sin(angles * np.pi / 180)
+
         self.cartesian_points_lidar = np.concatenate((x[:, None], y[:, None]), axis=1)
+
+        self.cartesian_points_lidar = convert_to_odom(
+            self.cartesian_points_lidar, self.x, self.y, self.theta
+        )
 
     def loop_wrapper(self):
         """This function takes care of calling the run_loop function repeatedly.
@@ -80,40 +112,62 @@ class DepthEstimation(Node):
             depth = cv2_wrapper(self.cv_image, 64)
             depth_remove_floor = remove_depth_floor(depth)
             masked_map, mask = identify_obstacles(depth_remove_floor, depth)
-            self.cartesian_points_vision, width = generate_point_cloud(depth, mask)
-            if not self.cartesian_points_vision:
-                cp = [[0, -100, -100], [0, -200, -200]]
+            self.cartesian_points_vision, no_points = generate_point_cloud(depth, mask)
+            self.cartesian_points_vision /= 100
+            if len(self.cartesian_points_vision.shape) == 1:
+                cp = np.array([[0, -100], [0, -200]])
+
             else:
+                self.cartesian_points_vision = np.delete(
+                    self.cartesian_points_vision, 1, 1
+                )
+                self.cartesian_points_vision = convert_to_odom(
+                    self.cartesian_points_vision, self.x, self.y, self.theta, False
+                )
                 cp = self.cartesian_points_vision
             # plt.imshow(
-            #     depth,
+            #     masked_map,
             #     cmap=plt.get_cmap("hot"),
             #     interpolation="nearest",
             #     vmin=0,
             #     vmax=1,
             # )
 
-            plt.scatter(cp[:, 0], cp[:, 2])
-            plt.xlim(-90, 90)
-            plt.ylim(0, 130)
+            # plot vision points
+            plt.scatter(cp[:, 0], cp[:, 1])
+
+            # plot lidar points
+            if len(self.cartesian_points_lidar.shape) == 1:
+                cp = np.array([[0, -100], [0, -200]])
+            else:
+                cp = self.cartesian_points_lidar
+            plt.scatter(cp[:, 0], cp[:, 1])
+            plt.quiver(self.x, self.y, np.cos(self.theta), np.sin(self.theta))
+
+            plt.xlim(-5, 5)
+            plt.ylim(-5, 5)
 
             plt.show(block=False)
             plt.pause(0.05)
             plt.clf()
 
     def publish_monocular_depth_estimates(self):
-        msg = PointCloud()
-        msg.header.stamp = Time()
-        msg.header.frame_id = "odom"
-        msg.points = [Point32(x=p[0], y=p[2]) for p in self.cartesian_points_vision]
-        self.monocular_depth_pub.publish(msg)
+
+        if len(self.cartesian_points_vision.shape) // 2 != 0:
+
+            msg = PointCloud()
+            msg.header.stamp = Time()
+            msg.header.frame_id = "odom"
+            msg.points = [Point32(x=p[0], y=p[1]) for p in self.cartesian_points_vision]
+            self.monocular_depth_pub.publish(msg)
 
     def publish_lidar_depth_estimates(self):
-        msg = PointCloud()
-        msg.header.stamp = Time()
-        msg.header.frame_id = "odom"
-        msg.points = [Point32(x=p[0], y=p[1]) for p in self.cartesian_points_lidar]
-        self.monocular_depth_pub.publish(msg)
+        if len(self.cartesian_points_lidar.shape) != 1:
+            msg = PointCloud()
+            msg.header.stamp = Time()
+            msg.header.frame_id = "odom"
+            msg.points = [Point32(x=p[0], y=p[1]) for p in self.cartesian_points_lidar]
+            self.lidar_depth_pub.publish(msg)
 
 
 if __name__ == "__main__":
