@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import time
 import rclpy
 from threading import Thread
@@ -12,8 +14,7 @@ import cv2
 import numpy as np
 from geometry_msgs.msg import Twist
 from matplotlib import pyplot as plt
-from sensor_msgs.msg import PointCloud
-from sensor_msgs.msg import LaserScan
+from sensor_msgs.msg import PointCloud, LaserScan
 
 # need to be changed when importing
 from depth_estimation_single_photo import cv2_wrapper
@@ -170,9 +171,9 @@ class DepthEstimation(Node):
             self.lidar_depth_pub.publish(msg)
 
 
-if __name__ == "__main__":
-    node = DepthEstimation("/camera/image_raw")
-    node.run()
+# if __name__ == "__main__":
+#     node = DepthEstimation("/camera/image_raw")
+#     node.run()
 
 
 def main(args=None):

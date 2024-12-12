@@ -26,6 +26,7 @@ endif()
 
 install(PROGRAMS
         neato_temple_run/main.py
+        neato_temple_run/depth_estimation.py
         DESTINATION lib/${PROJECT_NAME})
 
 
