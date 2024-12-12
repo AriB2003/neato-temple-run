@@ -5,16 +5,14 @@ import rclpy
 from threading import Thread
 from rclpy.node import Node
 import time
-from sensor_msgs.msg import Image
-from geometry_msgs.msg import Point32
+from sensor_msgs.msg import Image, PointCloud, LaserScan
+from geometry_msgs.msg import Point32, Twist
 from nav_msgs.msg import Odometry
 from builtin_interfaces.msg import Time
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
-from geometry_msgs.msg import Twist
 from matplotlib import pyplot as plt
-from sensor_msgs.msg import PointCloud, LaserScan
 
 # need to be changed when importing
 from depth_estimation_single_photo import cv2_wrapper
