@@ -13,6 +13,9 @@ threshold = 0.2  # .2
 
 
 def remove_depth_floor(cv2_image):
+    """
+    Subtracts the floor gradient from the depth map
+    """
 
     h, w = cv2_image.shape
 
@@ -33,6 +36,10 @@ def remove_depth_floor(cv2_image):
 
 
 def identify_obstacles(no_floor, depth_map):
+    """
+    Creates a mask of the depth map without the floor gradient to identify obstacles.
+    """
+
     s = depth_map.shape
 
     mask = np.zeros(s, dtype="uint8")
@@ -46,17 +53,14 @@ def identify_obstacles(no_floor, depth_map):
 
 def generate_point_cloud(depth_map, mask):
     """
-    Takes masked_map and depth_map
+    Generate point cloud from mask.
+    Identifies distances using average shade of obstacles.
+    Takes masked_map and depth_map.
     """
     contours, hierarchy = cv2.findContours(
         mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
 
-    # may end up removing
-    distances = []
-    projected_width = []
-
-    # only list still used
     cartesian_points = []
 
     height, width = mask.shape
@@ -70,19 +74,6 @@ def generate_point_cloud(depth_map, mask):
         distance = 29.61984 * 1 / mean - 9.58096
         x, y, w, h = cv2.boundingRect(contour)
 
-        """remove from here"""
-        # width of a 3 inch object
-        width_3in = 3186.06643 / distance + 2.26254
-
-        # ratio of width to 3 inch object is used to find real width
-        # in inches
-        width_ratio = w / width_3in * 3 * 2.54
-        projected_width += [width_ratio]
-
-        distances += [distance]
-
-        """TO here"""
-
         coords = [(x + i, y + h, 1 / 6) for i in range(0, w, 10)]
 
         coords_np = np.array(coords)
@@ -93,34 +84,19 @@ def generate_point_cloud(depth_map, mask):
 
         cartesian_points += np.array(projected_coords).tolist()
 
-        # for spacer in range(0, w, 10):
-        #     ray1 = np.array(find_angle(x + spacer, y + h))
-        #     ray1_projected = ray1
-        #     ray1_projected[1] = 0
-        #     ray1_projected = (
-        #         np.linalg.norm(ray1) / np.linalg.norm(ray1_projected) * ray1_projected
-        #     )
-        #     cartesian_points += [
-        #         distance / np.linalg.norm(ray1_projected) * ray1_projected
-        #     ]
-
-        # ray2 = np.array(find_angle(x + w, y + h))
-        # cartesian_points += [distance / np.linalg.norm(ray2) * ray2]
-
-        # # cartesian points projects the width from the camera, which doesn't follow the width prediction
-
-    isNull = False
+    # Checks if the points are empty
+    is_null = False
     if not cartesian_points:
-        isNull = True
+        is_null = True
     cartesian_points = np.array(cartesian_points)
 
-    # print(distances)
-    # print(projected_width)
-
-    return cartesian_points, isNull
+    return cartesian_points, is_null
 
 
 def find_angle(coords_np):
+    """
+    Projects a matrix of coordinates onto 3D space represented by rays.
+    """
 
     width = 4608
     height = 2592
@@ -137,33 +113,9 @@ def find_angle(coords_np):
     return r1
 
 
-# def find_angle(x, y):
-
-#     width = 4608
-#     height = 2592
-#     f = 2.75e-3 / 1.4e-6
-
-#     x *= 6
-#     y *= 6
-
-#     cx = (width - 1) / 2
-#     cy = (height - 1) / 2
-
-#     K = np.array([[f, 0, cx], [0, f, cy], [0, 0, 1]])
-#     Ki = np.linalg.inv(K)
-#     r1 = Ki.dot([x, y, 1.0])  # ray to object
-#     return r1
-
-
 # testing purposes
 if __name__ == "__main__":
 
-    # - Figure 1 - 120
-    # - Figure 2 - 90
-    # - Figure 3 - 70
-    # - Figure 4 - 53
-    # - Figure 5 - 20
-    # - Figure 6 - 35
     img = cv2.imread("Figure_4.png")
     depth = cv2_wrapper(img, 64)  # 64 is fastest
 

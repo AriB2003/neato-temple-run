@@ -47,6 +47,10 @@ def quaternion_from_euler(roll, pitch, yaw):
 
 
 def convert_to_odom(cartesian_points, x, y, theta, is_lidar=True):
+    """
+    Converts base_link cartesian scans to odometry frame.
+    Tunes the vision cartesian points to the lidar cartesian points
+    """
     if is_lidar:
         R = np.array(
             [

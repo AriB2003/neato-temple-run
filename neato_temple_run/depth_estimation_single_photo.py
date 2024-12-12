@@ -14,6 +14,10 @@ import cv2
 
 
 def estimate(image, width, height):
+    """
+    Processes image,
+    Take a PIL image input
+    """
 
     image_processor = AutoImageProcessor.from_pretrained(
         "depth-anything/Depth-Anything-V2-Small-hf"
@@ -51,6 +55,9 @@ def estimate(image, width, height):
 
 
 def cv2_wrapper(img, new_width):
+    """
+    Converts cv2 image to PIL image for image processing input
+    """
     height, width, channels = img.shape
     img = cv2.resize(
         img, (new_width, height * new_width // width), interpolation=cv2.INTER_AREA
