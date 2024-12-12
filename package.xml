@@ -4,7 +4,8 @@
   <name>neato_temple_run</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="paullundyruvolo@gmail.com">pruvolo</maintainer>
+  <maintainer email="abobesh@olin.edu">AriB2003</maintainer>
+  <maintainer email="cnie@olin.edu">chrdn</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
@@ -13,6 +14,7 @@
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>built_interfaces</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
