@@ -68,7 +68,8 @@ class ParticleFilter(Node):
         self.timer2 = self.create_timer(0.1, self.publish_wp_dir)
         self.timer3 = self.create_timer(1/40, self.drive)
         self.timer5 = self.create_timer(1/40, self.publish_control)
-        self.timer4 = self.create_timer(0.1, self.reset_goal)
+        self.timer4 = self.create_timer(0.1, self.check_goal)
+        self.timer6 = self.create_timer(0.1, self.updated_grid)
 
         self.current_odom_xy_theta = [0.0,0.0,0.0]
         self.occupancy_field = OccupancyField(self)
@@ -137,7 +138,26 @@ class ParticleFilter(Node):
             setattr(left_most, "designator",str(self.number-1))
             left_most.create_publishers()
 
-    def reset_goal(self):
+    def updated_grid(self):
+        if self.occupancy_field.updated:
+            trip = False
+            for i in range(self.number):
+                rrt = getattr(self, "rrt"+str(i))
+                path = getattr(self, "path"+str(i))
+                closest = rrt.occ_grid.get_closest_obstacle_distance(rrt.goal_pos.y,rrt.goal_pos.x)
+                if trip or not math.isnan(closest) and closest<rrt.thresh:
+                    print(f"Reset {i}")
+                    self.reset_goal(i)
+                    trip = True
+                else:
+                    closest = math.inf
+                    for p in path:
+                        closest = min(closest,rrt.occ_grid.get_closest_obstacle_distance(p.y,p.x))
+                    if not math.isnan(closest) and closest<rrt.thresh:
+                        rrt.trigger_quick = True
+            self.occupancy_field.updated = False
+
+    def check_goal(self):
         dx = self.rrt0.goal_pos.x-self.current_odom_xy_theta[0]
         dy = self.rrt0.goal_pos.y-self.current_odom_xy_theta[1]
         distance = math.sqrt(dx**2+dy**2)
@@ -146,36 +166,44 @@ class ParticleFilter(Node):
             self.shift("rrt")
             self.shift("path")
             self.shift("directions")
-            counter = 0
-            rrt = getattr(self, "rrt"+str(self.number-1))
-            path = getattr(self, "path"+str(max(0,self.number-2)))
-            directions = getattr(self, "directions"+str(max(0,self.number-2)))
-            while True:
-                x=6*(np.random.random()-0.5)+path[-1].x
-                y=6*(np.random.random()-0.5)+path[-1].y
-                dx = x-path[-1].x
-                dy = y-path[-1].y
-                distance = math.sqrt(dx**2+dy**2)
-                new_dir = math.atan2(y-path[-1].y,x-path[-1].x)
-                # print(f"{x},{y},dir:{self.current_odom_xy_theta[2]},{new_dir}")
-                direction_difference = abs(new_dir-directions[-1])
-                rrt.valid_goal = False
+            self.reset_goal(self.number-1)
+
+    def reset_goal(self, end):
+        counter = 0
+        rrt = getattr(self, "rrt"+str(end))
+        if end == 0:
+            path = [Point32(x=self.current_odom_xy_theta[0],y=self.current_odom_xy_theta[1])]
+            directions = [self.current_odom_xy_theta[2]]
+        else:
+            rrt_last = getattr(self, "rrt"+str(end-1))
+            path = [rrt_last.goal_pos]
+            directions = getattr(self, "directions"+str(end-1))
+        rrt.start_pos = Point32(x=path[-1].x,y=path[-1].y)
+        rrt.start_dir = directions[-1]
+        while True:
+            dx=4*(np.random.random()-0.5)
+            dy=4*(np.random.random()-0.5)
+            distance = math.sqrt(dx**2+dy**2)
+            new_dir = math.atan2(dy,dx)
+            # print(f"{x},{y},dir:{self.current_odom_xy_theta[2]},{new_dir}")
+            direction_difference = abs(new_dir-directions[-1])
+            x = dx+rrt.start_pos.x
+            y = dy+rrt.start_pos.y
+            rrt.valid_goal = False
+            rrt.goal_pos = Point32(x=x,y=y)
+            closest = rrt.occ_grid.get_closest_obstacle_distance(y,x)
+            if not math.isnan(closest) and closest>rrt.thresh and (direction_difference<1 or counter>100) and 2<distance<5:
                 rrt.goal_pos = Point32(x=x,y=y)
-                closest = rrt.occ_grid.get_closest_obstacle_distance(y,x)
-                if not math.isnan(closest) and closest>1.5*rrt.thresh and (direction_difference<1 or counter>100) and 1<distance<3:
-                    rrt.goal_pos = Point32(x=x,y=y)
-                    rrt.valid_goal = True
-                    print(f"New Goal: {rrt.goal_pos}")
-                    if counter>100:
-                        print("Failsafe")
-                    break
-                counter+=1
-            rrt.start_pos = Point32(x=path[-1].x,y=path[-1].y)
-            rrt.start_dir = directions[-1]
-            rrt.trigger_quick = True
-            self.p = 0
-            self.i = 0
-            self.d = 0
+                rrt.valid_goal = True
+                print(f"New Goal: {rrt.goal_pos}")
+                if counter>100:
+                    print("Failsafe")
+                break
+            counter+=1
+        rrt.trigger_quick = True
+        self.p = 0
+        self.i = 0
+        self.d = 0
 
     def drive(self):
         if self.rrt0.path_updated:

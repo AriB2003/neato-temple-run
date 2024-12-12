@@ -22,16 +22,16 @@ class OccupancyField(object):
         self.timer = node.create_timer(0.1, self.publish_occupancy_grid)
         # grab the map
         self.number_of_obstacles = 50
-        self.map_width = 200
-        self.map_height = 200
         self.map_resolution = 0.05
+        self.map_width = int(10/self.map_resolution)
+        self.map_height = int(10/self.map_resolution)
         self.map_origin_x = -self.map_width/2*self.map_resolution
         self.map_origin_y = -self.map_height/2*self.map_resolution
         self.total_size = self.map_width*self.map_height
         self.updated = False
         self.offset = 0.4
         self.build()
-        # self.timer = node.create_timer(2, self.build)
+        self.timer = node.create_timer(15, self.build)
         
         
 

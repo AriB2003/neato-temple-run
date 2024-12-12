@@ -59,7 +59,7 @@ class RRT(object):
         self.tree = []
         self.tolerance = 0.2
         self.step = 0.3
-        self.thresh = self.occ_grid.offset
+        self.thresh = self.occ_grid.offset*1.5
         self.neighborhood = 0.5
 
         self.timer = self.node.create_timer(0.1, self.publish_path)
@@ -119,53 +119,48 @@ class RRT(object):
         closest_index = [0,math.inf]
         print(f"Current Odom: {self.node.current_odom_xy_theta}")
         print(f"Start Dir: {self.start_dir}")
-        self.occ_grid.updated = True
-        if self.occ_grid.updated:
-            self.tree = [TreeNode(self.start_pos, None, self.start_dir)]
-            counter = 0
-            for i in range(self.depth):
-                if self.trigger_quick:
-                    return
-                if closest_index[1]<self.tolerance:
-                    chosen_idx = int(sp.norm.rvs(loc = 0.5*len(self.tree), scale = len(self.tree)/2))
-                else:
-                    chosen_idx = int(sp.norm.rvs(loc = 0.9*len(self.tree), scale = len(self.tree)/2))
-                parent = self.tree[max(0,min(chosen_idx, len(self.tree)-1))]
-                goal_dir_x = self.goal_pos.x-parent.pos.x
-                goal_dir_y = self.goal_pos.y-parent.pos.y
-                goal_dir = math.atan2(goal_dir_y, goal_dir_x)
-                if self.first:
-                    chosen_dir = sp.norm.rvs(loc = goal_dir, scale = 1)
-                else:
-                    chosen_dir = sp.norm.rvs(loc = (goal_dir+parent.dir)/2, scale = 1)
-                dir_x = self.step*math.cos(chosen_dir)
-                dir_y = self.step*math.sin(chosen_dir)
-                chosen_dir = math.atan2(dir_y,dir_x)
-                new_x = parent.pos.x+dir_x
-                new_y = parent.pos.y+dir_y
-                if self.occ_grid.get_closest_obstacle_distance(new_y,new_x)>self.thresh:
-                    counter+=1
-                    self.tree.append(TreeNode(Point32(x=new_x,y=new_y),parent,chosen_dir))
-                    distance = math.sqrt((self.goal_pos.x-new_x)**2+(self.goal_pos.y-new_y)**2)
-                    if distance<closest_index[1]:
-                        closest_index=[counter,distance]
-                        if distance<self.tolerance:
-                            break
+        self.tree = [TreeNode(self.start_pos, None, self.start_dir)]
+        counter = 0
+        for i in range(self.depth):
+            if self.trigger_quick:
+                return
             if closest_index[1]<self.tolerance:
-                self.rewire_tree()
-                if self.trigger_quick:
-                    return
-                self.directions = []
-                print(f"tree: {len(self.tree)},index: {closest_index[0]}")
-                self.path = self.extract_path(self.tree[closest_index[0]])
-                self.directions.reverse()
-                setattr(self.node,"path"+self.designator, self.path)
-                self.path_updated = True
-                setattr(self.node, "directions"+self.designator, self.directions)
-                self.success = True
-                # print(len(self.path))
-                # break
-            self.occ_grid.updated = False
+                chosen_idx = int(sp.norm.rvs(loc = 0.5*len(self.tree), scale = len(self.tree)/2))
+            else:
+                chosen_idx = int(sp.norm.rvs(loc = 0.9*len(self.tree), scale = len(self.tree)/2))
+            parent = self.tree[max(0,min(chosen_idx, len(self.tree)-1))]
+            goal_dir_x = self.goal_pos.x-parent.pos.x
+            goal_dir_y = self.goal_pos.y-parent.pos.y
+            goal_dir = math.atan2(goal_dir_y, goal_dir_x)
+            if self.first:
+                chosen_dir = sp.norm.rvs(loc = goal_dir, scale = 1)
+            else:
+                chosen_dir = sp.norm.rvs(loc = (goal_dir+parent.dir)/2, scale = 1)
+            dir_x = self.step*math.cos(chosen_dir)
+            dir_y = self.step*math.sin(chosen_dir)
+            chosen_dir = math.atan2(dir_y,dir_x)
+            new_x = parent.pos.x+dir_x
+            new_y = parent.pos.y+dir_y
+            if self.occ_grid.get_closest_obstacle_distance(new_y,new_x)>self.thresh:
+                counter+=1
+                self.tree.append(TreeNode(Point32(x=new_x,y=new_y),parent,chosen_dir))
+                distance = math.sqrt((self.goal_pos.x-new_x)**2+(self.goal_pos.y-new_y)**2)
+                if distance<closest_index[1]:
+                    closest_index=[counter,distance]
+                    if distance<self.tolerance:
+                        break
+        if closest_index[1]<self.tolerance:
+            self.rewire_tree()
+            if self.trigger_quick:
+                return
+            self.directions = []
+            print(f"tree: {len(self.tree)},index: {closest_index[0]}")
+            self.path = self.extract_path(self.tree[closest_index[0]])
+            self.directions.reverse()
+            setattr(self.node,"path"+self.designator, self.path)
+            self.path_updated = True
+            setattr(self.node, "directions"+self.designator, self.directions)
+            self.success = True
             
 
     def extract_path(self,treenode):
