@@ -44,7 +44,7 @@ class DepthEstimation(Node):
         self.create_subscription(Image, image_topic, self.process_image, 10)
         self.create_subscription(LaserScan, "scan", self.process_scan, 10)
 
-        self.pub = self.create_publisher(Twist, "cmd_vel", 10)
+        # self.pub = self.create_publisher(Twist, "cmd_vel", 10)
         self.monocular_depth_pub = self.create_publisher(
             PointCloud, "monocular_depth", 10
         )
@@ -128,27 +128,27 @@ class DepthEstimation(Node):
                     self.cartesian_points_vision, self.x, self.y, self.theta, False
                 )
                 cp = self.cartesian_points_vision
-            # plt.imshow(
-            #     masked_map,
-            #     cmap=plt.get_cmap("hot"),
-            #     interpolation="nearest",
-            #     vmin=0,
-            #     vmax=1,
-            # )
+            plt.imshow(
+                masked_map,
+                cmap=plt.get_cmap("hot"),
+                interpolation="nearest",
+                vmin=0,
+                vmax=1,
+            )
 
             # plot vision points
-            plt.scatter(cp[:, 0], cp[:, 1])
+            # plt.scatter(cp[:, 0], cp[:, 1])
 
-            # plot lidar points
-            if len(self.cartesian_points_lidar.shape) == 1:
-                cp = np.array([[0, -100], [0, -200]])
-            else:
-                cp = self.cartesian_points_lidar
-            plt.scatter(cp[:, 0], cp[:, 1])
-            plt.quiver(self.x, self.y, np.cos(self.theta), np.sin(self.theta))
+            # # plot lidar points
+            # if len(self.cartesian_points_lidar.shape) == 1:
+            #     cp = np.array([[0, -100], [0, -200]])
+            # else:
+            #     cp = self.cartesian_points_lidar
+            # plt.scatter(cp[:, 0], cp[:, 1])
+            # plt.quiver(self.x, self.y, np.cos(self.theta), np.sin(self.theta))
 
-            plt.xlim(-5, 5)
-            plt.ylim(-5, 5)
+            # plt.xlim(-5, 5)
+            # plt.ylim(-5, 5)
 
             plt.show(block=False)
             plt.pause(0.05)

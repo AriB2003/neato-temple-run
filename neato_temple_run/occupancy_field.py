@@ -25,7 +25,7 @@ class OccupancyField(object):
         self.occ_pub = node.create_publisher(OccupancyGrid, "occupancy_grid", 10)
         self.timer = node.create_timer(0.1, self.publish_occupancy_grid)
         # grab the map
-        map_size_m = 5
+        map_size_m = 10
         # self.number_of_obstacles = 50
         self.map_resolution = 0.05
         self.map_width = int(map_size_m / self.map_resolution)
@@ -37,11 +37,16 @@ class OccupancyField(object):
         self.offset = 0.3
 
         self.node.create_subscription(
-            PointCloud, "lidar_depth", self.process_points, 10
+            PointCloud, "lidar_depth", self.process_lidar_points, 10
+        )
+        self.node.create_subscription(
+            PointCloud, "monocular_depth", self.process_mono_points, 10
         )
         # self.timer = self.node.create_timer(0.1, self.process_points)
+        self.lidar_indices = np.array([])
+        self.mono_indices = np.array([])
         self.map_indices = np.array([])
-        self.closest_occ = 100 * np.ones((self.map_width, self.map_height))
+        self.closest_occ = np.ones((self.map_width, self.map_height))
 
         thread = Thread(target=self.loop_wrapper)
         thread.start()
@@ -49,13 +54,15 @@ class OccupancyField(object):
     def loop_wrapper(self):
         while True:
             self.build()
-            time.sleep(0.25)
+            time.sleep(1)
 
     def build(self):
-        if self.map_indices.shape[0] == 0:
-            print("No obstacles")
+        if self.lidar_indices.shape[0] == 0:
             return
-        print("Obstacles")
+        if self.mono_indices.shape[0] == 0:
+            self.map_indices = self.lidar_indices
+        else:
+            self.map_indices = np.vstack((self.lidar_indices, self.mono_indices))
         indices = (
             self.map_indices - np.array([self.map_origin_x, self.map_origin_y])
         ) // self.map_resolution
@@ -193,6 +200,10 @@ class OccupancyField(object):
         ).tolist()
         self.occ_pub.publish(msg)
 
-    def process_points(self, msg: PointCloud):
-        print("Points received")
-        self.map_indices = np.array([[p.x, p.y] for p in msg.points])
+    def process_lidar_points(self, msg: PointCloud):
+        # print("Points received")
+        self.lidar_indices = np.array([[p.x, p.y] for p in msg.points])
+
+    def process_mono_points(self, msg: PointCloud):
+        # print("Points received")
+        self.mono_indices = np.array([[p.x, p.y] for p in msg.points])

@@ -85,7 +85,7 @@ class ParticleFilter(Node):
         self.current_odom_xy_theta = [0.0, 0.0, 0.0]
         self.occupancy_field = OccupancyField(self)
         self.transform_helper = TFHelper(self)
-        self.number = 4
+        self.number = 2
         for i in range(self.number):
             setattr(self, "rrt" + str(i), RRT(self, self.occupancy_field, str(i)))
             setattr(self, "path" + str(i), [Point32(x=0.0, y=0.0)])
@@ -186,7 +186,7 @@ class ParticleFilter(Node):
         dy = self.rrt0.goal_pos.y - self.current_odom_xy_theta[1]
         distance = math.sqrt(dx**2 + dy**2)
         print(f"Distance to Goal: {distance}")
-        if distance < 1:
+        if distance < 0.5:
             self.shift("rrt")
             self.shift("path")
             self.shift("directions")
@@ -219,12 +219,19 @@ class ParticleFilter(Node):
             y = dy + rrt.start_pos.y
             rrt.valid_goal = False
             rrt.goal_pos = Point32(x=x, y=y)
-            closest = rrt.occ_grid.get_closest_obstacle_distance(y, x)
+            lin_x = np.linspace(rrt.start_pos.x, x, 10)
+            lin_y = np.linspace(rrt.start_pos.y, y, 10)
+            closest = math.inf
+            for i in range(10):
+                closest = min(
+                    closest,
+                    rrt.occ_grid.get_closest_obstacle_distance(lin_y[i], lin_x[i]),
+                )
             if (
                 not math.isnan(closest)
                 and closest > rrt.thresh
-                and (direction_difference < 1 or counter > 100)
-                and 2 < distance < 5
+                and (direction_difference < 1 or counter > 1000)
+                and 1 < distance < 5
             ):
                 rrt.goal_pos = Point32(x=x, y=y)
                 rrt.valid_goal = True
@@ -291,8 +298,8 @@ class ParticleFilter(Node):
             print(self.control_out)
 
             cmd_vel = Twist()
-            cmd_vel.linear.x = float(max(0, max(0.1, 0.75 - abs(self.control_out))))
-            cmd_vel.angular.z = float(max(-2, min(2, self.control_out)))
+            cmd_vel.linear.x = float(max(0, max(0.1, 0.5 - abs(self.control_out))))
+            cmd_vel.angular.z = float(max(-0.5, min(0.5, self.control_out)))
             self.drive_pub.publish(cmd_vel)
             # print("Publish Drive")
 
