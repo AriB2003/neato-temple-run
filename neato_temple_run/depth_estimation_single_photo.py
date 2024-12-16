@@ -74,7 +74,7 @@ if __name__ == "__main__":
     # - pedestrian.jpeg
     # - backpack_2.jpg
     # - skyline.jpg
-    img = cv2.imread("Where-We-Fly.jpg")
+    img = cv2.imread("neato_temple_run/Where-We-Fly.jpg")
 
     t0 = time.time()
 

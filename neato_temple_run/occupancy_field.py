@@ -3,6 +3,7 @@
 
 import rclpy
 import time
+import math
 import numpy as np
 from builtin_interfaces.msg import Time
 from nav_msgs.msg import OccupancyGrid
@@ -62,6 +63,7 @@ class OccupancyField(object):
         if self.mono_indices.shape[0] == 0:
             self.map_indices = self.lidar_indices
         else:
+            # self.map_indices = self.lidar_indices
             self.map_indices = np.vstack((self.lidar_indices, self.mono_indices))
         indices = (
             self.map_indices - np.array([self.map_origin_x, self.map_origin_y])
@@ -115,14 +117,15 @@ class OccupancyField(object):
         distances, indices = nbrs.kneighbors(X)
 
         self.node.get_logger().info("populating occupancy field")
-        self.closest_occ = np.zeros((self.map_width, self.map_height))
+        temp_closest_occ = np.zeros((self.map_width, self.map_height))
         curr = 0
         for i in range(self.map_width):
             for j in range(self.map_height):
-                self.closest_occ[i, j] = distances[curr][0] * self.map_resolution
+                temp_closest_occ[i, j] = distances[curr][0] * self.map_resolution
                 curr += 1
         self.occupied = occupied
         self.node.get_logger().info("occupancy field ready")
+        self.closest_occ = temp_closest_occ
         self.updated = True
 
     def get_obstacle_bounding_box(self):
@@ -145,23 +148,23 @@ class OccupancyField(object):
             ),
         )
 
-    def get_index_from_coords(self, x, y):
-        x_coord = (x - self.map_origin_x) / self.map_resolution
-        y_coord = (y - self.map_origin_y) / self.map_resolution
-        if type(x) is np.ndarray:
-            x_coord = np.round(x_coord).astype(np.int)
-            y_coord = np.round(y_coord).astype(np.int)
+    def get_index_from_coords(self, coord_x, coord_y):
+        x_ind = (coord_x - self.map_origin_x) // self.map_resolution
+        y_ind = (coord_y - self.map_origin_y) // self.map_resolution
+        if type(coord_x) is np.ndarray:
+            x_ind = np.round(x_ind).astype(np.int)
+            y_ind = np.round(y_ind).astype(np.int)
         else:
-            x_coord = int(round(x_coord))
-            y_coord = int(round(y_coord))
+            x_ind = int(round(x_ind))
+            y_ind = int(round(y_ind))
 
         is_valid = (
-            (x_coord >= 0)
-            & (y_coord >= 0)
-            & (x_coord < self.map_width)
-            & (y_coord < self.map_height)
+            (x_ind >= 0)
+            & (y_ind >= 0)
+            & (x_ind < self.map_width)
+            & (y_ind < self.map_height)
         )
-        return x_coord, y_coord, is_valid
+        return x_ind, y_ind, is_valid
 
     def get_coords_from_index(self, idx, idy):
         x = idx * self.map_resolution + self.map_origin_x
@@ -169,8 +172,8 @@ class OccupancyField(object):
         is_valid = (
             (idx >= 0)
             & (idy >= 0)
-            & (idx < self.map_width * self.map_resolution)
-            & (idy < self.map_height * self.map_resolution)
+            & (idx < self.map_width)
+            & (idy < self.map_height)
         )
         return x, y, is_valid
 
@@ -179,12 +182,12 @@ class OccupancyField(object):
         the map.  If the (x,y) coordinate is out of the map boundaries, nan
         will be returned."""
         x_coord, y_coord, is_valid = self.get_index_from_coords(x, y)
-        if type(x) is np.ndarray:
-            distances = np.float("nan") * np.ones(x_coord.shape)
-            distances[is_valid] = self.closest_occ[x_coord[is_valid], y_coord[is_valid]]
-            return distances
-        else:
-            return self.closest_occ[x_coord, y_coord] if is_valid else float("nan")
+        # if type(x) is np.ndarray:
+        #     distances = np.float("nan") * np.ones(x_coord.shape)
+        #     distances[is_valid] = self.closest_occ[x_coord[is_valid], y_coord[is_valid]]
+        #     return distances
+        # else:
+        return self.closest_occ[x_coord, y_coord] if is_valid else -math.inf
 
     def publish_occupancy_grid(self):
         msg = OccupancyGrid()

@@ -71,14 +71,14 @@ class ParticleFilter(Node):
         self.particle_pub = self.create_publisher(
             ParticleCloud, "particle_cloud", qos_profile_sensor_data
         )
-        self.drive_pub = self.create_publisher(Twist, "cmd_vel", 40)
+        self.drive_pub = self.create_publisher(Twist, "cmd_vel", 10)
         self.wp_pub = self.create_publisher(PointStamped, "next_wp", 10)
         self.wp_dir_pub = self.create_publisher(Marker, "wp_dir", 10)
-        self.control_pub = self.create_publisher(Marker, "control", 40)
+        self.control_pub = self.create_publisher(Marker, "control", 10)
         self.timer = self.create_timer(0.1, self.publish_wp)
         self.timer2 = self.create_timer(0.1, self.publish_wp_dir)
-        self.timer3 = self.create_timer(1 / 40, self.drive)
-        self.timer5 = self.create_timer(1 / 40, self.publish_control)
+        self.timer3 = self.create_timer(0.1, self.drive)
+        self.timer5 = self.create_timer(0.1, self.publish_control)
         self.timer4 = self.create_timer(0.1, self.check_goal)
         self.timer6 = self.create_timer(0.1, self.updated_grid)
 
@@ -223,20 +223,21 @@ class ParticleFilter(Node):
             lin_y = np.linspace(rrt.start_pos.y, y, 10)
             closest = math.inf
             for i in range(10):
+                c_temp = rrt.occ_grid.get_closest_obstacle_distance(lin_y[i], lin_x[i])
                 closest = min(
-                    closest,
-                    rrt.occ_grid.get_closest_obstacle_distance(lin_y[i], lin_x[i]),
-                )
+                    closest,c_temp)
+                # print(c_temp)
+            # print(f"Closest: {closest}")
             if (
-                not math.isnan(closest)
+                math.isfinite(closest)
                 and closest > rrt.thresh
-                and (direction_difference < 1 or counter > 1000)
+                and (direction_difference < counter*math.pi/1000 or counter > 1000)
                 and 1 < distance < 5
             ):
                 rrt.goal_pos = Point32(x=x, y=y)
                 rrt.valid_goal = True
                 print(f"New Goal: {rrt.goal_pos}")
-                if counter > 100:
+                if counter > 1000:
                     print("Failsafe")
                 break
             counter += 1
@@ -277,12 +278,22 @@ class ParticleFilter(Node):
                 self.last_index = index
             self.wp = waypoints[index]
             self.chosen_dir = self.directions0[index]
-            direction = dts[index]
+            # direction = np.unwrap([self.last_heading, dts[index]], period=2*math.pi)
+            # print(direction)
+            # direction = direction[1]
 
             self.heading = math.atan2(
                 math.sin(self.current_odom_xy_theta[2]),
                 math.cos(self.current_odom_xy_theta[2]),
             )
+
+            direction = dts[index]
+            if direction<-math.pi:
+                direction+=2*math.pi
+            elif direction>math.pi:
+                direction-=2*math.pi
+            # self.heading = np.unwrap([self.last_heading, self.heading], period=2*math.pi)
+            # self.heading = self.heading[1]
             self.p = direction
             kp = 1
             self.i += direction
@@ -298,8 +309,8 @@ class ParticleFilter(Node):
             print(self.control_out)
 
             cmd_vel = Twist()
-            cmd_vel.linear.x = float(max(0, max(0.1, 0.5 - abs(self.control_out))))
-            cmd_vel.angular.z = float(max(-0.5, min(0.5, self.control_out)))
+            cmd_vel.linear.x = float(max(0, max(0.1, 1 - abs(self.control_out))))
+            cmd_vel.angular.z = float(max(-2, min(2, self.control_out)))
             self.drive_pub.publish(cmd_vel)
             # print("Publish Drive")
 
