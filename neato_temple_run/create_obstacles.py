@@ -23,10 +23,10 @@ def remove_depth_floor(cv2_image):
     max_value = np.mean(cv2_image[-3:, :])
 
     horizon = h - horizon_y
-    btm_gradient = np.full((horizon, w), 1)
-    # btm_gradient = np.linspace(min_value, max_value, horizon, endpoint=True)
-    # btm_gradient = np.tile(btm_gradient, (w, 1))
-    # btm_gradient = np.transpose(btm_gradient)
+    # btm_gradient = np.full((horizon, w), 1)
+    btm_gradient = np.linspace(min_value, max_value, horizon, endpoint=True)
+    btm_gradient = np.tile(btm_gradient, (w, 1))
+    btm_gradient = np.transpose(btm_gradient)
 
     btm_matte = np.full((h - btm_gradient.shape[0], w), 0)
     btm = np.concatenate((btm_matte, btm_gradient))

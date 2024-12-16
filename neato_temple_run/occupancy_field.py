@@ -26,7 +26,7 @@ class OccupancyField(object):
         self.occ_pub = node.create_publisher(OccupancyGrid, "occupancy_grid", 10)
         self.timer = node.create_timer(0.1, self.publish_occupancy_grid)
         # grab the map
-        map_size_m = 10
+        map_size_m = 20
         # self.number_of_obstacles = 50
         self.map_resolution = 0.05
         self.map_width = int(map_size_m / self.map_resolution)

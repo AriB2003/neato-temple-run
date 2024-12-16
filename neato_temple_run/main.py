@@ -308,7 +308,7 @@ class ParticleFilter(Node):
             print(self.control_out)
 
             cmd_vel = Twist()
-            cmd_vel.linear.x = float(max(0, max(0.1, 0.3 - abs(self.control_out))))
+            cmd_vel.linear.x = float(max(0, max(0.0, 0.3 - abs(self.control_out))))
             cmd_vel.angular.z = float(max(-0.5, min(0.5, self.control_out)))
             self.drive_pub.publish(cmd_vel)
             # print("Publish Drive")
