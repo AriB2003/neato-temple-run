@@ -229,10 +229,9 @@ class ParticleFilter(Node):
                 # print(c_temp)
             # print(f"Closest: {closest}")
             if (
-                math.isfinite(closest)
-                and closest > rrt.thresh
-                and (direction_difference < counter*math.pi/1000 or counter > 1000)
-                and 1 < distance < 5
+                math.isfinite(closest) and (counter > 1000 or (closest > rrt.thresh
+                and (direction_difference < counter*math.pi/1000)
+                and 1 < distance < 5))
             ):
                 rrt.goal_pos = Point32(x=x, y=y)
                 rrt.valid_goal = True
@@ -309,8 +308,8 @@ class ParticleFilter(Node):
             print(self.control_out)
 
             cmd_vel = Twist()
-            cmd_vel.linear.x = float(max(0, max(0.1, 1 - abs(self.control_out))))
-            cmd_vel.angular.z = float(max(-2, min(2, self.control_out)))
+            cmd_vel.linear.x = float(max(0, max(0.1, 0.3 - abs(self.control_out))))
+            cmd_vel.angular.z = float(max(-0.5, min(0.5, self.control_out)))
             self.drive_pub.publish(cmd_vel)
             # print("Publish Drive")
 
