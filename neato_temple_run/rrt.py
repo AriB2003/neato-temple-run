@@ -9,7 +9,15 @@ import numpy as np
 import scipy.stats as sp
 from threading import Thread
 from builtin_interfaces.msg import Time
-from geometry_msgs.msg import PolygonStamped, Point32, PointStamped, Point, Vector3, Pose, Quaternion
+from geometry_msgs.msg import (
+    PolygonStamped,
+    Point32,
+    PointStamped,
+    Point,
+    Vector3,
+    Pose,
+    Quaternion,
+)
 from sensor_msgs.msg import PointCloud
 from visualization_msgs.msg import Marker
 from sklearn.neighbors import NearestNeighbors
@@ -24,24 +32,25 @@ class TreeNode(object):
         if parent is None:
             self.w = 0
         else:
-            self.w = parent.w+self.find_distance(parent)
+            self.w = parent.w + self.find_distance(parent)
 
     def return_point32(self):
-        return Point32(x=self.pos.x,y=self.pos.y)
-    
+        return Point32(x=self.pos.x, y=self.pos.y)
+
     def find_distance(self, other):
-        return (self.pos.x-other.pos.x)**2+(self.pos.y-other.pos.y)**2
-    
+        return (self.pos.x - other.pos.x) ** 2 + (self.pos.y - other.pos.y) ** 2
+
     def __str__(self):
         return f"{self.pos.x},{self.pos.y}"
 
+
 class RRT(object):
-    """ Stores an occupancy field for an input map.  An occupancy field returns
-        the distance to the closest obstacle for any coordinate in the map
-        Attributes:
-            map: the map to localize against (nav_msgs/OccupancyGrid)
-            closest_occ: the distance for each entry in the OccupancyGrid to
-            the closest obstacle
+    """Stores an occupancy field for an input map.  An occupancy field returns
+    the distance to the closest obstacle for any coordinate in the map
+    Attributes:
+        map: the map to localize against (nav_msgs/OccupancyGrid)
+        closest_occ: the distance for each entry in the OccupancyGrid to
+        the closest obstacle
     """
 
     def __init__(self, node, occ_grid, designator):
@@ -49,9 +58,9 @@ class RRT(object):
         self.designator = designator
         self.occ_grid = occ_grid
         self.resolution = self.occ_grid.map_resolution
-        self.start_pos = Point32(x=0.0,y=0.0)
+        self.start_pos = Point32(x=0.0, y=0.0)
         self.start_dir = 0.0
-        self.goal_pos = Point32(x=0.0,y=0.0)
+        self.goal_pos = Point32(x=0.0, y=0.0)
         self.valid_goal = False
 
         self.create_publishers()
@@ -59,7 +68,7 @@ class RRT(object):
         self.tree = []
         self.tolerance = 0.2
         self.step = 0.3
-        self.thresh = self.occ_grid.offset*1.5
+        self.thresh = self.occ_grid.offset * 1.5
         self.neighborhood = 0.5
 
         self.timer = self.node.create_timer(0.1, self.publish_path)
@@ -80,20 +89,30 @@ class RRT(object):
         thread.start()
 
     def create_publishers(self):
-        self.path_pub = self.node.create_publisher(PolygonStamped, "path"+self.designator,10)
-        self.goal_pub = self.node.create_publisher(PointStamped, "goal"+self.designator,10)
-        self.tree_pub = self.node.create_publisher(PointCloud, "tree"+self.designator,10)
-        self.goal_dir_pub = self.node.create_publisher(Marker, "goal_dir"+self.designator,10)
-        self.curr_dir_pub = self.node.create_publisher(Marker, "curr_dir"+self.designator,10)
+        self.path_pub = self.node.create_publisher(
+            PolygonStamped, "path" + self.designator, 10
+        )
+        self.goal_pub = self.node.create_publisher(
+            PointStamped, "goal" + self.designator, 10
+        )
+        self.tree_pub = self.node.create_publisher(
+            PointCloud, "tree" + self.designator, 10
+        )
+        self.goal_dir_pub = self.node.create_publisher(
+            Marker, "goal_dir" + self.designator, 10
+        )
+        self.curr_dir_pub = self.node.create_publisher(
+            Marker, "curr_dir" + self.designator, 10
+        )
 
     def loop_wrapper(self):
-        """ This function takes care of calling the run_loop function repeatedly.
-            We are using a separate thread to run the loop_wrapper to work around
-            issues with single threaded executors in ROS2 """
+        """This function takes care of calling the run_loop function repeatedly.
+        We are using a separate thread to run the loop_wrapper to work around
+        issues with single threaded executors in ROS2"""
         while True:
             if self.trigger_quick:
                 self.depth = 2000
-                self.step = 1
+                self.step = 0.5
                 self.trigger_quick = False
                 self.first = True
                 self.rrt()
@@ -105,10 +124,10 @@ class RRT(object):
                 self.step = 0.3
                 self.success = False
                 counter = 0
-                while not self.success and not self.trigger_quick and counter<50:
+                while not self.success and not self.trigger_quick and counter < 50:
                     self.rrt()
                     time.sleep(0.1)
-                    counter+=1
+                    counter += 1
             time.sleep(0.01)
 
     def rrt(self):
@@ -116,7 +135,7 @@ class RRT(object):
             return
         # self.start_pos = Point32(x=self.node.current_odom_xy_theta[0],y=self.node.current_odom_xy_theta[1])
         # self.start_dir = math.atan2(math.sin(self.node.current_odom_xy_theta[2]),math.cos(self.node.current_odom_xy_theta[2]))
-        closest_index = [0,math.inf]
+        closest_index = [0, math.inf]
         print(f"Current Odom: {self.node.current_odom_xy_theta}")
         print(f"Start Dir: {self.start_dir}")
         self.tree = [TreeNode(self.start_pos, None, self.start_dir)]
@@ -124,32 +143,40 @@ class RRT(object):
         for i in range(self.depth):
             if self.trigger_quick:
                 return
-            if closest_index[1]<self.tolerance:
-                chosen_idx = int(sp.norm.rvs(loc = 0.5*len(self.tree), scale = len(self.tree)/2))
+            if closest_index[1] < self.tolerance:
+                chosen_idx = int(
+                    sp.norm.rvs(loc=0.5 * len(self.tree), scale=len(self.tree) / 2)
+                )
             else:
-                chosen_idx = int(sp.norm.rvs(loc = 0.9*len(self.tree), scale = len(self.tree)/2))
-            parent = self.tree[max(0,min(chosen_idx, len(self.tree)-1))]
-            goal_dir_x = self.goal_pos.x-parent.pos.x
-            goal_dir_y = self.goal_pos.y-parent.pos.y
+                chosen_idx = int(
+                    sp.norm.rvs(loc=0.9 * len(self.tree), scale=len(self.tree) / 2)
+                )
+            parent = self.tree[max(0, min(chosen_idx, len(self.tree) - 1))]
+            goal_dir_x = self.goal_pos.x - parent.pos.x
+            goal_dir_y = self.goal_pos.y - parent.pos.y
             goal_dir = math.atan2(goal_dir_y, goal_dir_x)
             if self.first:
-                chosen_dir = sp.norm.rvs(loc = goal_dir, scale = 1)
+                chosen_dir = sp.norm.rvs(loc=goal_dir, scale=1)
             else:
-                chosen_dir = sp.norm.rvs(loc = (goal_dir+parent.dir)/2, scale = 1)
-            dir_x = self.step*math.cos(chosen_dir)
-            dir_y = self.step*math.sin(chosen_dir)
-            chosen_dir = math.atan2(dir_y,dir_x)
-            new_x = parent.pos.x+dir_x
-            new_y = parent.pos.y+dir_y
-            if self.occ_grid.get_closest_obstacle_distance(new_y,new_x)>self.thresh:
-                counter+=1
-                self.tree.append(TreeNode(Point32(x=new_x,y=new_y),parent,chosen_dir))
-                distance = math.sqrt((self.goal_pos.x-new_x)**2+(self.goal_pos.y-new_y)**2)
-                if distance<closest_index[1]:
-                    closest_index=[counter,distance]
-                    if distance<self.tolerance:
+                chosen_dir = sp.norm.rvs(loc=(goal_dir + parent.dir) / 2, scale=1)
+            dir_x = self.step * math.cos(chosen_dir)
+            dir_y = self.step * math.sin(chosen_dir)
+            chosen_dir = math.atan2(dir_y, dir_x)
+            new_x = parent.pos.x + dir_x
+            new_y = parent.pos.y + dir_y
+            if self.occ_grid.get_closest_obstacle_distance(new_y, new_x) > self.thresh:
+                counter += 1
+                self.tree.append(
+                    TreeNode(Point32(x=new_x, y=new_y), parent, chosen_dir)
+                )
+                distance = math.sqrt(
+                    (self.goal_pos.x - new_x) ** 2 + (self.goal_pos.y - new_y) ** 2
+                )
+                if distance < closest_index[1]:
+                    closest_index = [counter, distance]
+                    if distance < self.tolerance:
                         break
-        if closest_index[1]<self.tolerance:
+        if closest_index[1] < self.tolerance:
             self.rewire_tree()
             if self.trigger_quick:
                 return
@@ -157,44 +184,50 @@ class RRT(object):
             print(f"tree: {len(self.tree)},index: {closest_index[0]}")
             self.path = self.extract_path(self.tree[closest_index[0]])
             self.directions.reverse()
-            setattr(self.node,"path"+self.designator, self.path)
+            setattr(self.node, "path" + self.designator, self.path)
             self.path_updated = True
-            setattr(self.node, "directions"+self.designator, self.directions)
+            setattr(self.node, "directions" + self.designator, self.directions)
             self.success = True
-            
 
-    def extract_path(self,treenode):
+    def extract_path(self, treenode):
         self.directions.append(treenode.dir)
         if treenode.par is None:
             return [treenode.return_point32()]
-        return self.extract_path(treenode.par)+[treenode.return_point32()]
-        
+        return self.extract_path(treenode.par) + [treenode.return_point32()]
+
     def rewire_tree(self):
         for treenode in self.tree[::-1]:
             if self.trigger_quick:
-                    return
+                return
             if treenode.par is not None:
                 neigh, weigh, deigh = self.find_neighbors_distance(treenode)
-                yeigh = [m for m,n in zip(weigh,deigh)]
+                yeigh = [m for m, n in zip(weigh, deigh)]
                 if yeigh:
                     minimum_weight = min(yeigh)
-                    if minimum_weight<treenode.w:
+                    if minimum_weight < treenode.w:
                         minimum_index = weigh.index(minimum_weight)
                         treenode.par = neigh[minimum_index]
-                        treenode.dir = math.atan2(treenode.pos.y-treenode.par.pos.y,treenode.pos.x-treenode.par.pos.x)
+                        treenode.dir = math.atan2(
+                            treenode.pos.y - treenode.par.pos.y,
+                            treenode.pos.x - treenode.par.pos.x,
+                        )
                         treenode.w = weigh[minimum_index]
 
-            
     def find_neighbors_distance(self, treenode):
         neigh = []
         weigh = []
         deigh = []
         for tn in self.tree:
             dist = treenode.find_distance(tn)
-            if dist<self.neighborhood and tn!=treenode:
+            if dist < self.neighborhood and tn != treenode:
                 neigh.append(tn)
-                weigh.append(dist+tn.w)
-                deigh.append(abs(math.atan2(treenode.pos.y-tn.pos.y,treenode.pos.x-tn.pos.x)-tn.dir))
+                weigh.append(dist + tn.w)
+                deigh.append(
+                    abs(
+                        math.atan2(treenode.pos.y - tn.pos.y, treenode.pos.x - tn.pos.x)
+                        - tn.dir
+                    )
+                )
         return neigh, weigh, deigh
 
     # def dfs(self):
@@ -243,14 +276,14 @@ class RRT(object):
 
     def publish_goal(self):
         msg = PointStamped()
-        msg.point = Point(x=self.goal_pos.x,y=self.goal_pos.y)
+        msg.point = Point(x=self.goal_pos.x, y=self.goal_pos.y)
         msg.header.stamp = Time()
         msg.header.frame_id = "odom"
         self.goal_pub.publish(msg)
 
     def publish_dirs(self):
         msg = Marker()
-        msg.header.frame_id = 'odom'
+        msg.header.frame_id = "odom"
         msg.header.stamp = Time()
         msg.type = Marker.ARROW
         msg.action = Marker.ADD
@@ -260,10 +293,19 @@ class RRT(object):
         msg.scale.y = 0.1  # Head diameter
         msg.scale.z = 0.1  # Head length
 
-        msg.pose.position = Point(x=self.node.current_odom_xy_theta[0], y=self.node.current_odom_xy_theta[1])
+        msg.pose.position = Point(
+            x=self.node.current_odom_xy_theta[0], y=self.node.current_odom_xy_theta[1]
+        )
 
         # Specify the start and end points of the vector
-        q = quaternion_from_euler(0,0,math.atan2(self.node.wp.y-self.node.current_odom_xy_theta[1],self.node.wp.x-self.node.current_odom_xy_theta[0]))
+        q = quaternion_from_euler(
+            0,
+            0,
+            math.atan2(
+                self.node.wp.y - self.node.current_odom_xy_theta[1],
+                self.node.wp.x - self.node.current_odom_xy_theta[0],
+            ),
+        )
         msg.pose.orientation.x = q[0]
         msg.pose.orientation.y = q[1]
         msg.pose.orientation.z = q[2]
@@ -271,11 +313,18 @@ class RRT(object):
         msg.color.r = 1.0
         msg.color.g = 0.0
         msg.color.b = 0.0
-        msg.color.a = 1.0        
+        msg.color.a = 1.0
         self.goal_dir_pub.publish(msg)
 
         # Specify the start and end points of the vector
-        q = quaternion_from_euler(0,0,math.atan2(math.sin(self.node.current_odom_xy_theta[2]),math.cos(self.node.current_odom_xy_theta[2])))
+        q = quaternion_from_euler(
+            0,
+            0,
+            math.atan2(
+                math.sin(self.node.current_odom_xy_theta[2]),
+                math.cos(self.node.current_odom_xy_theta[2]),
+            ),
+        )
         msg.pose.orientation.x = q[0]
         msg.pose.orientation.y = q[1]
         msg.pose.orientation.z = q[2]
@@ -283,5 +332,5 @@ class RRT(object):
         msg.color.r = 0.0
         msg.color.g = 0.0
         msg.color.b = 1.0
-        msg.color.a = 1.0        
+        msg.color.a = 1.0
         self.curr_dir_pub.publish(msg)
