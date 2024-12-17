@@ -1,7 +1,5 @@
-""" An implementation of an occupancy field that you can use to implement
-    your particle filter """
+""" An implementation of an occupancy field """
 
-import rclpy
 import time
 import math
 import numpy as np
@@ -13,70 +11,77 @@ from threading import Thread
 
 
 class OccupancyField(object):
-    """Stores an occupancy field for an input map.  An occupancy field returns
-    the distance to the closest obstacle for any coordinate in the map
-    Attributes:
-        map: the map to localize against (nav_msgs/OccupancyGrid)
-        closest_occ: the distance for each entry in the OccupancyGrid to
-        the closest obstacle
-    """
+    """ Stores an occupancy field for an input map.  An occupancy field returns
+    the distance to the closest obstacle for any coordinate in the map """
 
     def __init__(self, node):
-        self.node = node
+        self.node = node # NeatoRunner node
+
+        # publisher for the grid
         self.occ_pub = node.create_publisher(OccupancyGrid, "occupancy_grid", 10)
         self.timer = node.create_timer(0.1, self.publish_occupancy_grid)
-        # grab the map
-        map_size_m = 20
-        # self.number_of_obstacles = 50
-        self.map_resolution = 0.05
-        self.map_width = int(map_size_m / self.map_resolution)
-        self.map_height = int(map_size_m / self.map_resolution)
-        self.map_origin_x = -self.map_width / 2 * self.map_resolution
-        self.map_origin_y = -self.map_height / 2 * self.map_resolution
-        self.total_size = self.map_width * self.map_height
-        self.updated = False
-        self.offset = 0.3
 
+        map_size_m = 20 # map size [m]
+        self.map_resolution = 0.05 # map resolution [m/idx]
+        self.map_width = int(map_size_m / self.map_resolution) # map width [idx]
+        self.map_height = int(map_size_m / self.map_resolution) # map height [idx]
+        self.map_origin_x = -self.map_width / 2 * self.map_resolution # map origin x [m]
+        self.map_origin_y = -self.map_height / 2 * self.map_resolution # map origin y [m]
+        self.total_size = self.map_width * self.map_height # map size [idx^2]
+        self.updated = False # update flag
+        self.offset = 0.3 # obstacle offset for visualization
+
+        # subscribers for lidar and vision pipeline
         self.node.create_subscription(
             PointCloud, "lidar_depth", self.process_lidar_points, 10
         )
         self.node.create_subscription(
             PointCloud, "monocular_depth", self.process_mono_points, 10
         )
-        # self.timer = self.node.create_timer(0.1, self.process_points)
-        self.lidar_indices = np.array([])
-        self.mono_indices = np.array([])
-        self.map_indices = np.array([])
+
+        # obstacle indicies
+        self.lidar_coords = np.array([])
+        self.mono_coords = np.array([])
+        self.obs_coords = np.array([])
+
+        # obstacle distances
         self.closest_occ = np.ones((self.map_width, self.map_height))
 
+        # parallelism thread
         thread = Thread(target=self.loop_wrapper)
         thread.start()
 
     def loop_wrapper(self):
         while True:
+            # re-build once a second
             self.build()
             time.sleep(1)
 
     def build(self):
-        if self.lidar_indices.shape[0] == 0:
+        """ Re-build the occupancy grid with the latest horizon data """
+        # if no data, return
+        if self.lidar_coords.shape[0] == 0:
             return
-        if self.mono_indices.shape[0] == 0:
-            self.map_indices = self.lidar_indices
+        # if no optical data, use only lidar
+        if self.mono_coords.shape[0] == 0:
+            self.obs_coords = self.lidar_coords
         else:
-            # self.map_indices = self.lidar_indices
-            self.map_indices = np.vstack((self.lidar_indices, self.mono_indices))
+            # use only lidar or monocular with lidar (depending on environment)
+            self.obs_coords = self.lidar_coords
+            # self.obs_coords = np.vstack((self.lidar_coords, self.mono_coords))
+
+        # extract the indices from the obstacles
         indices = (
-            self.map_indices - np.array([self.map_origin_x, self.map_origin_y])
+            self.obs_coords - np.array([self.map_origin_x, self.map_origin_y])
         ) // self.map_resolution
+        # bound the indices to the occupancy grid
         indices = np.maximum(indices, [0, 0])
         indices = np.minimum(indices, [self.map_width - 1, self.map_height - 1])
+        # linearize the indices
         linearized = np.int64(indices[:, 0] * self.map_height + indices[:, 1])
 
+        # create the map data and add the obstacle locations
         self.map_data = np.zeros((self.total_size))
-        # random_indices = np.int64(np.random.random_sample((np.random.random_integers(1,100)))*self.total_size)
-        # random_indices = np.int64(
-        #     np.random.random_sample(self.number_of_obstacles) * self.total_size
-        # )
         self.map_data[linearized] = 1
         self.node.get_logger().info(
             "map received width: {0} height: {1}".format(
@@ -125,6 +130,8 @@ class OccupancyField(object):
                 curr += 1
         self.occupied = occupied
         self.node.get_logger().info("occupancy field ready")
+
+        # save occupancy grid and trigger update
         self.closest_occ = temp_closest_occ
         self.updated = True
 
@@ -149,6 +156,7 @@ class OccupancyField(object):
         )
 
     def get_index_from_coords(self, coord_x, coord_y):
+        """ Get the index of a point from the coordinates """
         x_ind = (coord_x - self.map_origin_x) // self.map_resolution
         y_ind = (coord_y - self.map_origin_y) // self.map_resolution
         if type(coord_x) is np.ndarray:
@@ -157,7 +165,7 @@ class OccupancyField(object):
         else:
             x_ind = int(round(x_ind))
             y_ind = int(round(y_ind))
-
+        # check valid bounds
         is_valid = (
             (x_ind >= 0)
             & (y_ind >= 0)
@@ -167,8 +175,10 @@ class OccupancyField(object):
         return x_ind, y_ind, is_valid
 
     def get_coords_from_index(self, idx, idy):
+        """ Get the coordinates of a point from the index """
         x = idx * self.map_resolution + self.map_origin_x
         y = idy * self.map_resolution + self.map_origin_y
+        # check valid bounds
         is_valid = (
             (idx >= 0)
             & (idy >= 0)
@@ -178,18 +188,14 @@ class OccupancyField(object):
         return x, y, is_valid
 
     def get_closest_obstacle_distance(self, x, y):
-        """Compute the closest obstacle to the specified (x,y) coordinate in
-        the map.  If the (x,y) coordinate is out of the map boundaries, nan
-        will be returned."""
+        """ Compute the closest obstacle to the specified (x,y) coordinate in
+        the map. If the (x,y) coordinate is out of the map boundaries, -infinity
+        will be returned """
         x_coord, y_coord, is_valid = self.get_index_from_coords(x, y)
-        # if type(x) is np.ndarray:
-        #     distances = np.float("nan") * np.ones(x_coord.shape)
-        #     distances[is_valid] = self.closest_occ[x_coord[is_valid], y_coord[is_valid]]
-        #     return distances
-        # else:
         return self.closest_occ[x_coord, y_coord] if is_valid else -math.inf
 
     def publish_occupancy_grid(self):
+        """ Publish the occupancy grid """
         msg = OccupancyGrid()
         msg.info.resolution = self.map_resolution
         msg.info.width = self.map_width
@@ -204,9 +210,11 @@ class OccupancyField(object):
         self.occ_pub.publish(msg)
 
     def process_lidar_points(self, msg: PointCloud):
+        """ Receive the lidar points """
         # print("Points received")
-        self.lidar_indices = np.array([[p.x, p.y] for p in msg.points])
+        self.lidar_coords = np.array([[p.x, p.y] for p in msg.points])
 
     def process_mono_points(self, msg: PointCloud):
+        """ Receive the vision points """
         # print("Points received")
-        self.mono_indices = np.array([[p.x, p.y] for p in msg.points])
+        self.mono_coords = np.array([[p.x, p.y] for p in msg.points])

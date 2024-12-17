@@ -1,11 +1,7 @@
-""" An implementation of an occupancy field that you can use to implement
-    your particle filter """
+""" An implementation of an RRT path planner """
 
-import rclpy
-import random
 import math
 import time
-import numpy as np
 import scipy.stats as sp
 from threading import Thread
 from builtin_interfaces.msg import Time
@@ -14,81 +10,77 @@ from geometry_msgs.msg import (
     Point32,
     PointStamped,
     Point,
-    Vector3,
-    Pose,
-    Quaternion,
 )
 from sensor_msgs.msg import PointCloud
 from visualization_msgs.msg import Marker
-from sklearn.neighbors import NearestNeighbors
 from angle_helpers import quaternion_from_euler
 
 
 class TreeNode(object):
+    """ Class for point nodes in the tree """
     def __init__(self, pos, parent, dir):
-        self.pos = pos
-        self.dir = dir
-        self.par = parent
-        if parent is None:
+        self.pos = pos # position
+        self.dir = dir # direction
+        self.par = parent # parent TreeNode
+        if parent is None: # weight
             self.w = 0
         else:
             self.w = parent.w + self.find_distance(parent)
 
     def return_point32(self):
+        """ Return TreeNode as Point32 """
         return Point32(x=self.pos.x, y=self.pos.y)
 
     def find_distance(self, other):
+        """ Find distance to other TreeNode """
         return (self.pos.x - other.pos.x) ** 2 + (self.pos.y - other.pos.y) ** 2
 
     def __str__(self):
+        """ String representation """
         return f"{self.pos.x},{self.pos.y}"
 
 
 class RRT(object):
-    """Stores an occupancy field for an input map.  An occupancy field returns
-    the distance to the closest obstacle for any coordinate in the map
-    Attributes:
-        map: the map to localize against (nav_msgs/OccupancyGrid)
-        closest_occ: the distance for each entry in the OccupancyGrid to
-        the closest obstacle
-    """
+    """ Stores an occupancy field for an input map. An occupancy field returns
+    the distance to the closest obstacle for any coordinate in the map """
 
     def __init__(self, node, occ_grid, designator):
-        self.node = node
-        self.designator = designator
-        self.occ_grid = occ_grid
-        self.resolution = self.occ_grid.map_resolution
-        self.start_pos = Point32(x=0.0, y=0.0)
-        self.start_dir = 0.0
-        self.goal_pos = Point32(x=0.0, y=0.0)
-        self.valid_goal = False
+        self.node = node # NeatoRunner node
+        self.designator = designator # designator for tracking goal number
+        self.occ_grid = occ_grid # OccupancyGrid
+        self.resolution = self.occ_grid.map_resolution # resolution of the map
+        self.start_pos = Point32(x=0.0, y=0.0) # start position
+        self.start_dir = 0.0 # start direction
+        self.goal_pos = Point32(x=0.0, y=0.0) # goal position
+        self.valid_goal = False # goal valid
 
-        self.create_publishers()
-
-        self.tree = []
-        self.tolerance = 0.2
-        self.step = 0.3
-        self.thresh = self.occ_grid.offset * 1.5
-        self.neighborhood = 0.5
-
+        self.create_publishers() # create publishers
         self.timer = self.node.create_timer(0.1, self.publish_path)
         self.timer3 = self.node.create_timer(0.1, self.publish_goal)
         self.timer4 = self.node.create_timer(0.1, self.publish_tree)
         self.timer5 = self.node.create_timer(0.1, self.publish_dirs)
-        # self.timer2 = self.node.create_timer(2, self.rrt)
-        self.path = []
-        self.directions = []
-        self.path_updated = False
-        self.trigger_quick = False
-        self.trigger_long = False
-        self.first = False
-        self.success = False
-        self.depth = 100
 
+        self.tree = [] # RRT tree
+        self.tolerance = 0.2 # goal reached tolerance
+        self.step = 0.3 # step size
+        self.thresh = self.occ_grid.offset * 1.5 # obstacle threshold
+        self.neighborhood = 0.5 # neighborhood radius
+
+        self.path = [] # found path
+        self.directions = [] # waypoint directions
+        self.path_updated = False # path updated flag
+        self.trigger_quick = False # quick recalculation trigger
+        self.trigger_long = False # slow recalculation trigger
+        self.first = False # first run flag
+        self.success = False # success flag
+        self.depth = 100 # maximum depth flag
+
+        # multithreading parallelization
         thread = Thread(target=self.loop_wrapper)
         thread.start()
 
     def create_publishers(self):
+        """ Recreate the publishers with a new designator """
         self.path_pub = self.node.create_publisher(
             PolygonStamped, "path" + self.designator, 10
         )
@@ -106,11 +98,12 @@ class RRT(object):
         )
 
     def loop_wrapper(self):
-        """This function takes care of calling the run_loop function repeatedly.
+        """ This function takes care of calling the run_loop function repeatedly.
         We are using a separate thread to run the loop_wrapper to work around
-        issues with single threaded executors in ROS2"""
+        issues with single threaded executors in ROS2 """
         while True:
             if self.trigger_quick:
+                # if the quick pathing triggered, run a fast RRT, then trigger long
                 self.depth = 2000
                 self.step = 0.5
                 self.trigger_quick = False
@@ -119,11 +112,13 @@ class RRT(object):
                 self.first = False
                 self.trigger_long = True
             if self.trigger_long:
+                # if the long pathing triggered, run a long RRT
                 self.trigger_long = False
                 self.depth = 5000
                 self.step = 0.3
                 self.success = False
                 counter = 0
+                # rerun until next trigger or 50 iterations
                 while not self.success and not self.trigger_quick and counter < 50:
                     self.rrt()
                     time.sleep(0.1)
@@ -131,18 +126,22 @@ class RRT(object):
             time.sleep(0.01)
 
     def rrt(self):
+        """ Run the RRT algorithm """
         if not self.valid_goal:
+            # return if goal invalid
             return
-        # self.start_pos = Point32(x=self.node.current_odom_xy_theta[0],y=self.node.current_odom_xy_theta[1])
-        # self.start_dir = math.atan2(math.sin(self.node.current_odom_xy_theta[2]),math.cos(self.node.current_odom_xy_theta[2]))
-        closest_index = [0, math.inf]
         print(f"Current Odom: {self.node.current_odom_xy_theta}")
         print(f"Start Dir: {self.start_dir}")
+        # initialize the root node
         self.tree = [TreeNode(self.start_pos, None, self.start_dir)]
+        # track the closest node to goal
+        closest_index = [0, math.inf]
         counter = 0
-        for i in range(self.depth):
+        for _ in range(self.depth):
             if self.trigger_quick:
+                # cancel if retriggered
                 return
+            # if close to the goal, use smaller steps 
             if closest_index[1] < self.tolerance:
                 chosen_idx = int(
                     sp.norm.rvs(loc=0.5 * len(self.tree), scale=len(self.tree) / 2)
@@ -151,60 +150,80 @@ class RRT(object):
                 chosen_idx = int(
                     sp.norm.rvs(loc=0.9 * len(self.tree), scale=len(self.tree) / 2)
                 )
+            # get random parent node using distribution
             parent = self.tree[max(0, min(chosen_idx, len(self.tree) - 1))]
+            # calculate direction from parent to goal
             goal_dir_x = self.goal_pos.x - parent.pos.x
             goal_dir_y = self.goal_pos.y - parent.pos.y
             goal_dir = math.atan2(goal_dir_y, goal_dir_x)
+            # if in the quick RRT, aim straight for the goal, else aim for smoothness
             if self.first:
                 chosen_dir = sp.norm.rvs(loc=goal_dir, scale=1)
             else:
                 chosen_dir = sp.norm.rvs(loc=(goal_dir + parent.dir) / 2, scale=1)
+            # create a new node one step in the direction chosen
             dir_x = self.step * math.cos(chosen_dir)
             dir_y = self.step * math.sin(chosen_dir)
             chosen_dir = math.atan2(dir_y, dir_x)
             new_x = parent.pos.x + dir_x
             new_y = parent.pos.y + dir_y
+            # check if node is valid
             if self.occ_grid.get_closest_obstacle_distance(new_y, new_x) > self.thresh:
                 counter += 1
+                # add to tree
                 self.tree.append(
                     TreeNode(Point32(x=new_x, y=new_y), parent, chosen_dir)
                 )
                 distance = math.sqrt(
                     (self.goal_pos.x - new_x) ** 2 + (self.goal_pos.y - new_y) ** 2
                 )
+                # if the distance if closer to the goal, note it down
                 if distance < closest_index[1]:
                     closest_index = [counter, distance]
+                    # if close enough to goal, break the loop
                     if distance < self.tolerance:
                         break
+        # if the RRT succeeded
         if closest_index[1] < self.tolerance:
+            # rewire the tree
             self.rewire_tree()
             if self.trigger_quick:
+                # cancel if triggered
                 return
             self.directions = []
             print(f"tree: {len(self.tree)},index: {closest_index[0]}")
+            # extract the path and directions
             self.path = self.extract_path(self.tree[closest_index[0]])
             self.directions.reverse()
+            # set the path and directions within the NeatoRunner class, flag updates
             setattr(self.node, "path" + self.designator, self.path)
             self.path_updated = True
             setattr(self.node, "directions" + self.designator, self.directions)
             self.success = True
 
     def extract_path(self, treenode):
-        self.directions.append(treenode.dir)
+        """ Extract the path from the tree recursively """
+        self.directions.append(treenode.dir) # save waypoint directions
         if treenode.par is None:
-            return [treenode.return_point32()]
+            return [treenode.return_point32()] # return a list of Point32
         return self.extract_path(treenode.par) + [treenode.return_point32()]
 
     def rewire_tree(self):
+        """ Rewire the tree for traversal speed """
         for treenode in self.tree[::-1]:
+            # traverse in reverse from goal to start
             if self.trigger_quick:
+                # cancel if triggered
                 return
             if treenode.par is not None:
+                # find neighbors, weights, and theta difference
                 neigh, weigh, deigh = self.find_neighbors_distance(treenode)
                 yeigh = [m for m, n in zip(weigh, deigh)]
                 if yeigh:
+                    # if nodes exist in the neighborhood, find the minimum weight
                     minimum_weight = min(yeigh)
                     if minimum_weight < treenode.w:
+                        # reset the node's properties with the new parent
                         minimum_index = weigh.index(minimum_weight)
                         treenode.par = neigh[minimum_index]
                         treenode.dir = math.atan2(
@@ -214,10 +233,12 @@ class RRT(object):
                         treenode.w = weigh[minimum_index]
 
     def find_neighbors_distance(self, treenode):
+        """ Find the neighbors, weights, and angles, in a neighborhood """
         neigh = []
         weigh = []
         deigh = []
         for tn in self.tree:
+            # loop through all nodes and find within neighborhood
             dist = treenode.find_distance(tn)
             if dist < self.neighborhood and tn != treenode:
                 neigh.append(tn)
@@ -230,37 +251,8 @@ class RRT(object):
                 )
         return neigh, weigh, deigh
 
-    # def dfs(self):
-    #     visited = np.zeros(np.shape(self.occ_grid.closest_occ))
-    #     self.path = self.dfs_helper(visited, self.start_pos,0) or [self.start_pos]
-    #     self.path = [Point32(x=p.y,y=p.x) for p in self.path]
-    #     # print(self.path)
-
-    # def dfs_helper(self, visited, pos,d):
-    #     x = pos.x
-    #     y = pos.y
-    #     [ix,iy,valid] = self.occ_grid.get_index_from_coords(x,y)
-    #     # print(f"{x},{y},{ix},{iy},{valid}")
-    #     visited[ix,iy] = 1
-    #     if abs(self.goal_pos.x-x)<0.2 and abs(self.goal_pos.y-y)<0.2:
-    #         print("found it!!!!!!!!!!!!!!!!")
-    #         return [pos]
-    #     elif d>400:
-    #         return None
-    #     path = None
-    #     if path is None and ix<99 and visited[ix+1,iy]==0 and self.occ_grid.closest_occ[ix+1, iy]>0.2:
-    #         path = self.dfs_helper(visited,Point32(x=x+0.05,y=y),d+1) or None
-    #     if path is None and iy<99  and visited[ix,iy+1]==0 and self.occ_grid.closest_occ[ix, iy+1]>0.2:
-    #         path = self.dfs_helper(visited,Point32(x=x,y=y+0.05),d+1) or None
-    #     if path is None and ix>0 and visited[ix-1,iy]==0 and self.occ_grid.closest_occ[ix-1, iy]>0.2:
-    #         path = self.dfs_helper(visited,Point32(x=x-0.05,y=y),d+1) or None
-    #     if path is None and iy>0 and visited[ix,iy-1]==0 and self.occ_grid.closest_occ[ix, iy-1]>0.2:
-    #         path = self.dfs_helper(visited,Point32(x=x,y=y-0.05),d+1) or None
-    #     if path is not None:
-    #         path.append(pos)
-    #     return path
-
     def publish_tree(self):
+        """ Publish the tree as a PointCloud """
         msg = PointCloud()
         msg.header.stamp = Time()
         msg.header.frame_id = "odom"
@@ -268,6 +260,7 @@ class RRT(object):
         self.tree_pub.publish(msg)
 
     def publish_path(self):
+        """ Publish the path as a PolygonStamped """
         msg = PolygonStamped()
         msg.polygon.points = self.path
         msg.header.stamp = Time()
@@ -275,6 +268,7 @@ class RRT(object):
         self.path_pub.publish(msg)
 
     def publish_goal(self):
+        """ Publish the goal as a PointStamped """
         msg = PointStamped()
         msg.point = Point(x=self.goal_pos.x, y=self.goal_pos.y)
         msg.header.stamp = Time()
@@ -282,6 +276,7 @@ class RRT(object):
         self.goal_pub.publish(msg)
 
     def publish_dirs(self):
+        """ Publish the neato orientation and waypoint direction as arrow Markers """
         msg = Marker()
         msg.header.frame_id = "odom"
         msg.header.stamp = Time()
@@ -302,8 +297,8 @@ class RRT(object):
             0,
             0,
             math.atan2(
-                self.node.wp.y - self.node.current_odom_xy_theta[1],
-                self.node.wp.x - self.node.current_odom_xy_theta[0],
+                self.node.next_wp.y - self.node.current_odom_xy_theta[1],
+                self.node.next_wp.x - self.node.current_odom_xy_theta[0],
             ),
         )
         msg.pose.orientation.x = q[0]
