@@ -163,6 +163,3 @@ cython_debug/
 
 # VSCode
 .vscode/
-*.jpg
-*.png
-*.jpeg
