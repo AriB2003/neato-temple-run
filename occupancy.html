@@ -1,0 +1,108 @@
+<!-----
+
+You have some errors, warnings, or alerts. If you are using reckless mode, turn it off to see inline alerts.
+* ERRORs: 0
+* WARNINGs: 0
+* ALERTS: 3
+
+Conversion time: 1.116 seconds.
+
+
+Using this HTML file:
+
+1. Paste this output into your source file.
+2. See the notes and action items below regarding this conversion run.
+3. Check the rendered output (headings, lists, code blocks, tables) for proper
+   formatting and use a linkchecker before you publish this page.
+
+Conversion notes:
+
+* Docs to Markdown version 1.0β40
+* Wed Dec 18 2024 20:02:52 GMT-0800 (PST)
+* Source doc: Final Project Proposal
+* This document has images: check for >>>>>  gd2md-html alert:  inline image link in generated source and store images to your server. NOTE: Images in exported zip file from Google Docs may not appear in  the same order as they do in your doc. Please check the images!
+
+----->
+
+<p>
+<a href="http://index.html">[1] Index</a>
+</p>
+<p>
+<a href="http://milestones.html">[2] Milestones</a>
+</p>
+<p>
+	<a href="http://milestone1.html">[2.1] Milestone 1</a>
+</p>
+<p>
+	<a href="http://milestone2.html">[2.2] Milestone 2</a>
+</p>
+<p>
+<a href="http://project.html">[3] Project</a>
+</p>
+<p>
+	<a href="http://intro.html">[3.1] Intro</a>
+</p>
+<p>
+	<a href="http://runner.html">[3.2] Runner</a>
+</p>
+<p>
+	<a href="http://rrt.html">[3.3] RRT</a>
+</p>
+<p>
+	<a href="http://occupancy.html">[3.4] Occupancy</a>
+</p>
+<p>
+	<a href="http://vision.html">[3.5] Vision</a>
+</p>
+<p>
+	<a href="http://network.html">[3.6] Network</a>
+</p>
+<p>
+	<a href="http://rviz.html">[3.7] Rviz</a>
+</p>
+<p>
+	<a href="http://demo.html">[3.8] Demo</a>
+</p>
+<p>
+	<a href="http://ethics.html">[3.9] Ethics</a>
+</p>
+<p>
+<a href="http://sources.html">[4] Sources</a>
+</p>
+<h1>Occupancy Field</h1>
+
+
+<h2>Class</h2>
+
+
+<p>
+The occupancy field is a grid that represents the known state of the world. It contains the distance between each point and the nearest known obstacle. This allows the Neato to plan around obstacles by comparing waypoints and positions to their corresponding distance-to-obstacle values. When this distance is below a certain threshold, this implies a high probability of collision with an obstacle. 
+</p>
+<p>
+
+
+<img src="images/OccupancyField Class.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<h2>Building</h2>
+
+
+<p>
+The build process starts with the obstacle points being read from the ROS network and the merging of the LIDAR and visual points. Then, these locations are saved into a matrix. A k-nearest-neighbors clustering is run on the entirety of the map to extract the closest obstacle to any given point. As can be seen in the first image, yellow points are the LIDAR scan and the darker regions represent farther distances from obstacles. In the second image, the distances are thresholded to highlight no-go zones around obstacles.
+</p>
+<p>
+
+<img src="images/Occupancy Field.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<p>
+
+<img src="images/Rviz Visualization.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<h2>Updating</h2>
+
+
+<p>
+The occupancy field currently updates every second. This is an increment that can be tuned, but for performance reasons, lowering it farther may not be desirable since re-builds can trigger repathings, which are time-intensive. Especially with real-world testing, scans are so variable that it is hard to heuristically determine whether a frontier has changed enough to merit re-building. An algorithm that compares old to new scans weighing highly the frontier in front of the robot could perhaps achieve this type of heuristic. One possible drawback is that in real-world testing it has been shown that the odom frame of the robot is unreliable at best due to slippage on all surfaces, so unless a SLAM type of localization is implemented, it might be hard to truly isolate the changes in the frontier from the noise. We also realize that our rates are limited by the speed at which the vision pipeline can run and the speed of the robot. Since the vision pipeline takes on the order of 0.5 - 1 seconds to complete, re-building does not have to be faster and benefits would likely not be realized. One final idea would be to link re-builds to updates from the vision pipeline or a specific amount of time, whichever comes later. These types of optimizations were not the focus of our project due to the existent complexities to overcome.
+</p>

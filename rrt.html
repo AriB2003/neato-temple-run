@@ -1,0 +1,227 @@
+<!-----
+
+You have some errors, warnings, or alerts. If you are using reckless mode, turn it off to see inline alerts.
+* ERRORs: 0
+* WARNINGs: 0
+* ALERTS: 3
+
+Conversion time: 1.09 seconds.
+
+
+Using this HTML file:
+
+1. Paste this output into your source file.
+2. See the notes and action items below regarding this conversion run.
+3. Check the rendered output (headings, lists, code blocks, tables) for proper
+   formatting and use a linkchecker before you publish this page.
+
+Conversion notes:
+
+* Docs to Markdown version 1.0β40
+* Wed Dec 18 2024 20:01:59 GMT-0800 (PST)
+* Source doc: Final Project Proposal
+* Tables are currently converted to HTML tables.
+* This document has images: check for >>>>>  gd2md-html alert:  inline image link in generated source and store images to your server. NOTE: Images in exported zip file from Google Docs may not appear in  the same order as they do in your doc. Please check the images!
+
+----->
+
+<p>
+<a href="http://index.html">[1] Index</a>
+</p>
+<p>
+<a href="http://milestones.html">[2] Milestones</a>
+</p>
+<p>
+	<a href="http://milestone1.html">[2.1] Milestone 1</a>
+</p>
+<p>
+	<a href="http://milestone2.html">[2.2] Milestone 2</a>
+</p>
+<p>
+<a href="http://project.html">[3] Project</a>
+</p>
+<p>
+	<a href="http://intro.html">[3.1] Intro</a>
+</p>
+<p>
+	<a href="http://runner.html">[3.2] Runner</a>
+</p>
+<p>
+	<a href="http://rrt.html">[3.3] RRT</a>
+</p>
+<p>
+	<a href="http://occupancy.html">[3.4] Occupancy</a>
+</p>
+<p>
+	<a href="http://vision.html">[3.5] Vision</a>
+</p>
+<p>
+	<a href="http://network.html">[3.6] Network</a>
+</p>
+<p>
+	<a href="http://rviz.html">[3.7] Rviz</a>
+</p>
+<p>
+	<a href="http://demo.html">[3.8] Demo</a>
+</p>
+<p>
+	<a href="http://ethics.html">[3.9] Ethics</a>
+</p>
+<p>
+<a href="http://sources.html">[4] Sources</a>
+</p>
+<h1>RRT*</h1>
+
+
+<p>
+RRT* (Rapidly-exploring Random Trees) is a path-planning algorithm that builds a tree in order to quickly span a large space and find a valid path from a start node to a goal node. The algorithm has four important parts: the TreeNodes, the tree-building, the tree rewiring, and then the path extraction.
+</p>
+<h2>TreeNodes</h2>
+
+
+<p>
+We created a custom class for our RRT* implementation called the TreeNode. It was useful to use this class in order to manage the data and properties of nodes in the tree for simplicity within the code. We decided to leave the function for finding neighbors outside of the class; however, we could see a reason for having it be built into the object like the function for finding distances. We wanted to keep the TreeNode functions more specific to just a single TreeNode rather than requiring interaction with the entirety of the tree.
+</p>
+<p>
+
+
+<img src="images/TreeNode Class.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<h2>Tree-Building</h2>
+
+
+<p>
+The RRT* tree-building starts with the root TreeNode. This begins a list of TreeNodes representing the tree itself. The root TreeNode has no parent and assumes position and direction from external input. The algorithm also initializes the distance between the start and goal to be infinity - tracking the distance and what TreeNode corresponds to closest distances permits the algorithm to be run in a constrained or unconstrained mode. In constrained mode, the algorithm exits immediately upon reaching the goal - this allows for faster runtime but less optimized trees during rewiring because fewer optimizations can be explored.
+</p>
+<p>
+For a given iteration, capped at a pre-specified value, the algorithm performs a series of actions:
+</p>
+<ol>
+
+<li>Choose a random TreeNode in the tree to branch from using a normal distribution to sample.</li> 
+<ol>
+ 
+<li>The mean of the normal distribution starts at the end of the tree (where the most recent nodes have been added) and shifts towards the center as the goal is approached. We are making the assumption that we want to sample most from the emergent horizon, which tends to be towards the end of the tree.</li> 
+</ol>
+
+<li>Choose a random direction to step in, sampling from a normal distribution.</li> 
+<ol>
+ 
+<li>The center of the distribution is either the direction towards the goal or a linear weighing between the goal direction and the parent direction. The latter weighting allows for smoother tree paths to be generated.</li> 
+</ol>
+
+<li>Step in the chosen direction from the chosen TreeNode.</li>
+
+<li>Check whether the step lands outside the radius around an obstacle. If not, return to step 1.</li>
+
+<li>Append the TreeNode to the tree list.</li>
+
+<li>See if the goal is any closer and save the minimum distance to the goal - if in constrained mode and the goal is close enough, return.</li>
+</ol>
+<p>
+
+
+<img src="images/Tree-Building RRT_.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<h2>Rewiring</h2>
+
+
+<p>
+Rewire the tree is the process of taking a known path and optimizing it to reduce total distance (weight). Starting at the goal and working backwards, each TreeNode along the path is scrutinized. Optimization is done by finding the neighbors within a region around the TreeNode and calculating whether the changing of the parent to that other TreeNode would reduce the weight. This calculation can be purely distance or impacted by weighing in a factor relative to the angle disparity in order to try to coax longer but smoother paths. As TreeNodes change to more optimal parents, the path becomes lower cost. This is a computationally expensive operation and is known to undo some of the path smoothing effects achieved in the Tree-Building; however, the Tree-Building optimizations are still useful because they can coax the overall path around a specific side of an obstacle to better smoothen the path, something that generally cannot be replanned around in the rewiring step. Thereby these optimizations work towards optimizing the path at different scales and do not entirely conflict on all aspects.
+</p>
+<p>
+
+<img src="images/Rewiring RRT_.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<h2>Path Extraction</h2>
+
+
+<p>
+Path extraction is the final step in generating a path of waypoints. This simply entails traversing the tree recursively from the goal to the start and converting/saving each TreeNode to a Point32 waypoint.
+</p>
+<h2>Important Parameters</h2>
+
+
+<p>
+There are five main parameters that can be used to tune the RRT* algorithm for different use cases. These parameters are separate from the direct modifications that can be made to centers of sampling distributions, choosing to skip rewiring, and other high-level behaviors.
+</p>
+<ul>
+
+<li>Tolerance [m]: acceptable difference between the TreeNode and goal to be accepted as a completed tree.</li>
+
+<li>Step [m]: amount of distance traversed in a step.</li>
+
+<li>Threshold [m]: acceptable distance from obstacle.</li>
+
+<li>Neighborhood [m]: radius of the rewiring neighborhood.</li>
+
+<li>Depth [count]: maximum number of tree-building iterations.</li>
+</ul>
+<p>
+Here are some possible parameter sets for quick-and-dirty vs. slow-and-precise runs determined through experimentation in simulation:
+</p>
+
+<table>
+  <tr>
+   <td><strong>Parameter</strong>
+   </td>
+   <td><strong>Quick</strong>
+   </td>
+   <td><strong>Slow</strong>
+   </td>
+  </tr>
+  <tr>
+   <td><em>Tolerance [m]</em>
+   </td>
+   <td><em>0.2</em>
+   </td>
+   <td><em>0.2</em>
+   </td>
+  </tr>
+  <tr>
+   <td><em>Threshold [m]</em>
+   </td>
+   <td><em>0.45</em>
+   </td>
+   <td><em>0.45</em>
+   </td>
+  </tr>
+  <tr>
+   <td><em>Neighborhood [m]</em>
+   </td>
+   <td><em>0.5</em>
+   </td>
+   <td><em>0.5</em>
+   </td>
+  </tr>
+  <tr>
+   <td>Step [m]
+   </td>
+   <td>0.5
+   </td>
+   <td>0.3
+   </td>
+  </tr>
+  <tr>
+   <td>Depth [count]
+   </td>
+   <td>2000
+   </td>
+   <td>5000
+   </td>
+  </tr>
+</table>
+
+
+<p>
+These quick and slow runs are triggered in the code sequentially to get a mixture of System 1 and System 2 thinking. Impulsiveness on demand and thought on the decision horizon afterwards.
+</p>
+<h2>Future Steps</h2>
+
+
+<p>
+For now, the path output represents a low-resolution pathing solution and would benefit from the use of splines in order to smoothen it or a control algorithm that better traverses it in a smooth manner.
+</p>

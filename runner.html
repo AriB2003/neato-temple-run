@@ -1,0 +1,133 @@
+<!-----
+
+You have some errors, warnings, or alerts. If you are using reckless mode, turn it off to see inline alerts.
+* ERRORs: 0
+* WARNINGs: 0
+* ALERTS: 2
+
+Conversion time: 0.935 seconds.
+
+
+Using this HTML file:
+
+1. Paste this output into your source file.
+2. See the notes and action items below regarding this conversion run.
+3. Check the rendered output (headings, lists, code blocks, tables) for proper
+   formatting and use a linkchecker before you publish this page.
+
+Conversion notes:
+
+* Docs to Markdown version 1.0β40
+* Wed Dec 18 2024 20:00:00 GMT-0800 (PST)
+* Source doc: Final Project Proposal
+* This document has images: check for >>>>>  gd2md-html alert:  inline image link in generated source and store images to your server. NOTE: Images in exported zip file from Google Docs may not appear in  the same order as they do in your doc. Please check the images!
+
+----->
+<p>
+<a href="http://index.html">[1] Index</a>
+</p>
+<p>
+<a href="http://milestones.html">[2] Milestones</a>
+</p>
+<p>
+	<a href="http://milestone1.html">[2.1] Milestone 1</a>
+</p>
+<p>
+	<a href="http://milestone2.html">[2.2] Milestone 2</a>
+</p>
+<p>
+<a href="http://project.html">[3] Project</a>
+</p>
+<p>
+	<a href="http://intro.html">[3.1] Intro</a>
+</p>
+<p>
+	<a href="http://runner.html">[3.2] Runner</a>
+</p>
+<p>
+	<a href="http://rrt.html">[3.3] RRT</a>
+</p>
+<p>
+	<a href="http://occupancy.html">[3.4] Occupancy</a>
+</p>
+<p>
+	<a href="http://vision.html">[3.5] Vision</a>
+</p>
+<p>
+	<a href="http://network.html">[3.6] Network</a>
+</p>
+<p>
+	<a href="http://rviz.html">[3.7] Rviz</a>
+</p>
+<p>
+	<a href="http://demo.html">[3.8] Demo</a>
+</p>
+<p>
+	<a href="http://ethics.html">[3.9] Ethics</a>
+</p>
+<p>
+<a href="http://sources.html">[4] Sources</a>
+</p>
+<h1>Neato Runner</h1>
+
+
+<h2>Non-Myopic Planning</h2>
+
+
+<p>
+The Neato Runner has a singular easily tunable parameter that changes the number of goals. It does this by changing the length of a circular buffer that is powered by a circular shifter that deals with multiple instances of the RRT class, saved path object, and saved waypoint directions object - one copy for each goal. These could be wrapped into a single class or perhaps the path and directions objects could be stored within the RRT class; however, the legacy code was designed in this way and it was simpler to maintain that architecture than change it retroactively. Each of these objects is stored as an attribute in the Neato Runner node with a descriptive prefix and then a numerical suffix that counts up from zero. The Neato follows the path given by the first goal, but then has the future goals pre-planned to allow for seamless transitions. It also allows the final goal to be recomputed for as long as is necessary without inhibiting the robot’s performance. The image below shows what the circular buffer looks like for the RRT objects.
+</p>
+<p>
+
+
+<img src="images/Runner Circular Shift.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<h2>Occupancy Field Update Handling</h2>
+
+
+<p>
+Whenever the Occupancy Field is updated, there is cause for concern that the new frontier may have revealed an obstacle that invalidates a prior goal or path. These two conditions are checked.
+</p>
+<ul>
+
+<li>If only a path is invalidated, the path is recomputed as is normal to create a detour.</li>
+
+<li>If a goal is invalidated, the goal and all future goals are recomputed to new, random locations.</li>
+</ul>
+<h2>Goal Acceptance</h2>
+
+
+<p>
+If a goal is within 0.5 meters of the current position, it is considered achieved and the Neato shifts all objects to start guiding towards the next goal. The old goal is added to the back of the circular buffer and is reset randomly.
+</p>
+<h2>Goal Resetting</h2>
+
+
+<p>
+The goal is reset based on either the prior goal or the current Neato position, depending on which goal is being reset.
+</p>
+<ol>
+
+<li>The code randomly picks a vector to represent the change between the start position and the new goal.</li>
+
+<li>The vector is checked for intersection with any obstacles.</li>
+
+<li>The vector is validated against criteria for minimum/maximum length and the angle difference relative to the current trajectory (to maintain smooth motion).</li>
+
+<li>If a vector passes all checks, the new goal is set to its terminus point. Otherwise, this is reattempted from Step 1 and the constraints are slightly loosened.</li>
+</ol>
+<p>
+
+
+
+
+<img src="images/Goal Setting.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<h2>Control Algorithm</h2>
+
+
+<p>
+We tried tuning the Neato control algorithm to be better, but we found that we faced a lot of unforeseen challenges going from simulation to reality, so we were not really able to make a single tuning that worked. We attempted PID to go from waypoint to waypoint, but we only ended up being able to implement P in a stable manner. Some of the issues we faced were angle wrappings where if the desired heading and current heading were on opposite sides of the x-axis, then we would end up with undesirable control signals pointing in the wrong directions. We fixed this by implementing a function that detected and mitigated wrap-around errors. We also struggled to choose the correct waypoint to follow. What we decided on was that we would scan a path and weight each waypoint based on its distance and angle deviation from the current trajectory. We would then path plan to the waypoint with the lowest weight. We had to include some in order to prevent the robot from revisiting already completed waypoints by backtracking; otherwise, it could decide to circle the same waypoint. The weighting algorithm, although uniquely tuned through testing to this particular use case, can be thought of exactly like goal resetting.
+</p>

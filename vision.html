@@ -1,0 +1,420 @@
+<!-----
+
+You have some errors, warnings, or alerts. If you are using reckless mode, turn it off to see inline alerts.
+* ERRORs: 0
+* WARNINGs: 1
+* ALERTS: 15
+
+Conversion time: 2.691 seconds.
+
+
+Using this HTML file:
+
+1. Paste this output into your source file.
+2. See the notes and action items below regarding this conversion run.
+3. Check the rendered output (headings, lists, code blocks, tables) for proper
+   formatting and use a linkchecker before you publish this page.
+
+Conversion notes:
+
+* Docs to Markdown version 1.0β40
+* Wed Dec 18 2024 20:07:00 GMT-0800 (PST)
+* Source doc: Final Project Proposal
+* Tables are currently converted to HTML tables.
+
+WARNING:
+You have some equations: look for ">>>>>  gd2md-html alert:  equation..." in output.
+
+* This document has images: check for >>>>>  gd2md-html alert:  inline image link in generated source and store images to your server. NOTE: Images in exported zip file from Google Docs may not appear in  the same order as they do in your doc. Please check the images!
+
+----->
+
+
+<p style="color: red; font-weight: bold">>>>>>  gd2md-html alert:  ERRORs: 0; WARNINGs: 1; ALERTS: 15.</p>
+<ul style="color: red; font-weight: bold"><li>See top comment block for details on ERRORs and WARNINGs. <li>In the converted Markdown or HTML, search for inline alerts that start with >>>>>  gd2md-html alert:  for specific instances that need correction.</ul>
+
+<p style="color: red; font-weight: bold">Links to alert messages:</p><a href="#gdcalert1">alert1</a>
+<a href="#gdcalert2">alert2</a>
+<a href="#gdcalert3">alert3</a>
+<a href="#gdcalert4">alert4</a>
+<a href="#gdcalert5">alert5</a>
+<a href="#gdcalert6">alert6</a>
+<a href="#gdcalert7">alert7</a>
+<a href="#gdcalert8">alert8</a>
+<a href="#gdcalert9">alert9</a>
+<a href="#gdcalert10">alert10</a>
+<a href="#gdcalert11">alert11</a>
+<a href="#gdcalert12">alert12</a>
+<a href="#gdcalert13">alert13</a>
+<a href="#gdcalert14">alert14</a>
+<a href="#gdcalert15">alert15</a>
+
+<p style="color: red; font-weight: bold">>>>>> PLEASE check and correct alert issues and delete this message and the inline alerts.<hr></p>
+
+
+<p>
+<a href="http://index.html">[1] Index</a>
+</p>
+<p>
+<a href="http://milestones.html">[2] Milestones</a>
+</p>
+<p>
+	<a href="http://milestone1.html">[2.1] Milestone 1</a>
+</p>
+<p>
+	<a href="http://milestone2.html">[2.2] Milestone 2</a>
+</p>
+<p>
+<a href="http://project.html">[3] Project</a>
+</p>
+<p>
+	<a href="http://intro.html">[3.1] Intro</a>
+</p>
+<p>
+	<a href="http://runner.html">[3.2] Runner</a>
+</p>
+<p>
+	<a href="http://rrt.html">[3.3] RRT</a>
+</p>
+<p>
+	<a href="http://occupancy.html">[3.4] Occupancy</a>
+</p>
+<p>
+	<a href="http://vision.html">[3.5] Vision</a>
+</p>
+<p>
+	<a href="http://network.html">[3.6] Network</a>
+</p>
+<p>
+	<a href="http://rviz.html">[3.7] Rviz</a>
+</p>
+<p>
+	<a href="http://demo.html">[3.8] Demo</a>
+</p>
+<p>
+	<a href="http://ethics.html">[3.9] Ethics</a>
+</p>
+<p>
+<a href="http://sources.html">[4] Sources</a>
+</p>
+<h1>Obstacle Detection</h1>
+
+
+<h2>Vision Pipeline</h2>
+
+
+<h3>Overview</h3>
+
+
+<p>
+Lidar is a powerful tool, and very simple to implement using the ROS2 and Neato platform. However, ultimately the data it provides is rather sparse, and many objects it simply cannot see. Our solution to this problem was to include a camera in the object detection pipeline. Instead of using a traditional stereo camera, our group decided to explore the possibility of using monocular vision for obstacle detection. 
+</p>
+<p>
+For monocular vision, we used Depth Anything (v2), a monocular depth estimation deep learning model that was released in 2024. This allows us to generate a relative depth map using a photo taken from any camera. From here, we process the image to find obstacles using the following steps: 
+</p>
+<ul>
+
+<li>Subtract the floor gradient from the depth map</li>
+
+<li>Create a mask from the remaining image. These are obstacles</li>
+
+<li>Find the contours of the mask to identify separate objects</li>
+
+<li>Use the contour as a mask over the depth map. Take the mean</li>
+
+<li>Use the mean to calculate distance.</li>
+
+<li>Calculate ray from the location of the contours (x,y,w,h)</li>
+
+<li>Project the ray and distances onto the xz-plane in Cartesian points </li>
+
+<li>Publish the Cartesian points to a PointCloud, which is a list of geometry_msgs.msg.Point32 objects. </li>
+</ul>
+<p>
+The pipeline is summarized in the following flow chart. 
+</p>
+<p>
+
+
+<p id="gdcalert1" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: inline image link here (to images/image1.png). Store image on your image server and adjust path/filename/extension if necessary. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert2">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+<img src="images/image1.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<h3>Original Photo</h3>
+
+
+<p>
+To illustrate the pipeline, we will use this image which was taken from a Raspberry Pi Camera Module 3 Wide mounted on a Neato. 
+</p>
+<p>
+
+
+<p id="gdcalert2" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: inline image link here (to images/image2.png). Store image on your image server and adjust path/filename/extension if necessary. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert3">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+<img src="images/image2.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<h3>Floor Gradient </h3>
+
+
+<p>
+
+
+<p id="gdcalert3" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: inline image link here (to images/image3.png). Store image on your image server and adjust path/filename/extension if necessary. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert4">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+<img src="images/image3.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<p>
+When Depth Anything takes a photo from the Neato, this is the result. We noticed that the floor can be represented as a gradient. We believed that after removing the floor gradient, everything else can be considered an obstacle. The maximum value of the gradient is the mean of the lowest row of pixels of the depth floor, and the gradient extends to the “horizon line”, which was at y=150 on the Neato’s camera. 
+</p>
+<p>
+
+
+<p id="gdcalert4" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: inline image link here (to images/image4.png). Store image on your image server and adjust path/filename/extension if necessary. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert5">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+<img src="images/image4.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<p>
+When we subtract these images, we are able to obtain a depth map without any gradient. 
+</p>
+<p>
+
+
+<p id="gdcalert5" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: inline image link here (to images/image5.png). Store image on your image server and adjust path/filename/extension if necessary. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert6">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+<img src="images/image5.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<h3>Binary Mask</h3>
+
+
+<p>
+
+
+<p id="gdcalert6" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: inline image link here (to images/image6.png). Store image on your image server and adjust path/filename/extension if necessary. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert7">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+<img src="images/image6.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<p>
+Using boolean indexing, we can simplify the remaining objects to a mask. 
+</p>
+<h3>Separate Objects</h3>
+
+
+<p>
+
+
+<p id="gdcalert7" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: inline image link here (to images/image7.png). Store image on your image server and adjust path/filename/extension if necessary. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert8">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+<img src="images/image7.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<p>
+OpenCV’s contour detection can be used on the binary map to create reliable masks, as well as mark each object as a separate object. This allows us to perform the following tasks on each separate contour. 
+</p>
+<h4>Calculate Distance</h4>
+
+
+<p>
+Since Depth Anything and other monocular depth models generally produce relative depth maps, it is often difficult to identify the scale at which a camera is working at. Below, we show two images that will look identical through a monocular depth model. However, one is an aerial view of the Chambord Castle, while the other is a 1/30 scale model replica in the <em>French Miniature</em>. 
+</p>
+
+<table>
+  <tr>
+   <td>
+
+<p id="gdcalert8" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: inline image link here (to images/image8.png). Store image on your image server and adjust path/filename/extension if necessary. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert9">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+<img src="images/image8.png" width="" alt="alt_text" title="image_tooltip">
+
+   </td>
+   <td>
+
+<p id="gdcalert9" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: inline image link here (to images/image9.png). Store image on your image server and adjust path/filename/extension if necessary. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert10">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+<img src="images/image9.png" width="" alt="alt_text" title="image_tooltip">
+
+   </td>
+  </tr>
+</table>
+
+
+<p>
+There are three common approaches to tackle this issue: 
+</p>
+<ul>
+
+<li>Get ground truth using lidar, time-of-flight or stereo camera</li>
+
+<li>Assume depth consistency across all images</li>
+
+<li>Use movement sensors to give context. </li>
+</ul>
+<p>
+Sensor fusion requires precise calibration and embedded integration. Since the camera is mounted in the front, and the lidar is mounted in the back, we were not sure it was possible to do the calibration necessary. The Neato also lacks any sort of real movement sensor. It has an odometry function, but that is prone to error. 
+</p>
+<p>
+However, since the Neato is locked in the y-axis, and the camera is mounted to a static orientation, we can assume that the depth is consistent across all images. This is further enforced by the ground gradient. Since the camera will always see the floor, it will always pick up objects as relative distances to the floor. 
+</p>
+<p>
+Thus, we can find the predicted distance by finding the mean value of the depth map at each contour. We calibrated the pixel strength to actual distance and was able to get distance measurement with a precision of 10 cm. 
+</p>
+<p>
+
+
+<p id="gdcalert10" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: inline image link here (to images/image10.png). Store image on your image server and adjust path/filename/extension if necessary. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert11">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+<img src="images/image10.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<h4>Calculate Ray and 3D projection</h4>
+
+
+<p>
+For ray calculation, we selected the row of the bottom most points in the contour (since we assume that these objects are on the floor) and projected them to 3D space.
+</p>
+<p>
+ 
+</p>
+<p>
+Ray projection requires the following parameters: 
+</p>
+<ul>
+
+<li>Pixel dimensions of the camera</li>
+
+<li>Pixel size</li>
+
+<li>Focal length</li>
+</ul>
+<p>
+This allows us to construct the camera Matrix K which projects a point from 3D space onto an xy picture plane. 
+</p>
+
+<table>
+  <tr>
+   <td>
+   </td>
+   <td rowspan="3" >{
+   </td>
+   <td><em>f</em>
+   </td>
+   <td><em>0</em>
+   </td>
+   <td><em>c<sub>x</sub></em>
+   </td>
+   <td rowspan="3" >}
+   </td>
+  </tr>
+  <tr>
+   <td><em>k =</em>
+   </td>
+   <td><em>0</em>
+   </td>
+   <td><em>f</em>
+   </td>
+   <td><em>c<sub>y</sub></em>
+   </td>
+  </tr>
+  <tr>
+   <td>
+   </td>
+   <td><em>0</em>
+   </td>
+   <td><em>0</em>
+   </td>
+   <td><em>1</em>
+   </td>
+  </tr>
+</table>
+
+
+<p>
+where 
+
+<p id="gdcalert11" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert12">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+</p>
+<p>
+And 
+
+<p id="gdcalert12" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert13">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+, 
+
+<p id="gdcalert13" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert14">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+ are the center pixel of the image. 
+</p>
+<p>
+Taking the inverse of 
+
+<p id="gdcalert14" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: equation: use MathJax/LaTeX if your publishing platform supports it. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert15">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+ gives us a matrix that projects a point from the xy picture plane onto 3D space. We can take any arbitrary point (x,y) from the image and multiply it by k to obtain a ray. We normalize this ray and scale it by the distance to obtain a cartesian point with respect to the Neato’s <em>base link</em>. 
+</p>
+<p style="text-align: center">
+
+
+<p id="gdcalert15" ><span style="color: red; font-weight: bold">>>>>>  gd2md-html alert: inline image link here (to images/image11.png). Store image on your image server and adjust path/filename/extension if necessary. </span><br>(<a href="#">Back to top</a>)(<a href="#gdcalert16">Next alert</a>)<br><span style="color: red; font-weight: bold">>>>>> </span></p>
+
+
+<img src="images/image11.png" width="" alt="alt_text" title="image_tooltip">
+
+</p>
+<p style="text-align: center">
+Ground truth: the water bottle is 50 <em>cm</em> away and has a 9 cm diameter. 
+</p>
+<p style="text-align: center">
+Bottom left: raw image
+</p>
+<p style="text-align: center">
+Top left: depth map
+</p>
+<p style="text-align: center">
+Top right: obstacle mask overlaid over depth map
+</p>
+<p style="text-align: center">
+Bottom right: cartesian points of obstacles
+</p>
+<h3>Communicating the Points</h3>
+
+
+<p>
+The Occupancy field expects data of the following format
+</p>
+<ul>
+
+<li>Meters, not centimeters</li>
+
+<li><em>Odom </em>frame, not <em>base_link</em></li>
+
+<li>Receives messages of type <em>PointCloud</em>, which is a list of <em>Point32</em> message objects. </li>
+</ul>
+<p>
+After converting to centimeters, we apply a frame transformation to the <em>Odom </em>frame. This is done by first rotating the points to align with the direction of the Neato’s <em>Odom</em> orientation. After translating the points, we can start looking at sending a <em>PointCloud</em>. Using list comprehension, we are able to create a list of <em>Point32</em> objects, which we send to a topic. 
+</p>
+<h2>Lidar</h2>
+
+
+<p>
+Our camera estimation is able to, independent of movement or additional sensors, identify obstacles and locate them on points with a high degree of accuracy. However, it is ultimately limited by the 102° horizontal field of vision. We also found that the functional range of the depth map using the floor gradient was 1.5 m. This meant that if there are no obstacles within 1.5 m and in the 102° field of view of the Neato, the vision pipeline would return a blank map. We decided that including Lidar would increase the map’s robustness by detecting objects outside of this range. Lidar is able to identify “long term” obstacles such as walls, while the camera is able to find “imminent” obstacles, such as chairs, table legs, or ground clutter that the Lidar is more prone to missing. 
+</p>
+<p>
+Lidar scan is given as polar coordinates in the robot’s <em>base_link</em> frame. We convert the points to Cartesian form and transform them to the <em>Odom</em> frame. 
+</p>
