@@ -84,7 +84,22 @@
     
     
     <ul>
-    
+
     <li>CompRobo 2024 Class Setup: <a href="https://comprobo24.github.io/How%20to/setup_your_environment">https://comprobo24.github.io/How%20to/setup_your_environment</a></li>
     
-    <li>A comprehensive list of packages included in the work environment are listed in the ‘requirements.txt’ file. There are likely some unused packages listed, but most are used in some way or another. The most important packages to pay attention to are NumPy, SciPy, MatPlotLib, and ContourPy because these must not be upgraded to version 2 and beyond to retain compatibility with the ROS Humble environment.
+    <li>For RRT:</li> 
+    <ul>
+        
+    <li>A comprehensive list of packages included in the work environment are listed in the ‘requirements.txt’ file. There are likely some unused packages listed, but most are used in some way or another. The most important packages to pay attention to are NumPy, SciPy, MatPlotLib, and ContourPy because these must not be upgraded to version 2 and beyond to retain compatibility with the ROS Humble environment.</li> 
+    </ul>
+    
+    <li>For Vision:</li> 
+    <ul>
+        
+    <li>Make sure that PIL is installed.</li>
+        
+    <li>Install Transformers ‘pip install transformers’.</li>
+        
+    <li>Install PyTorch.</li>
+        
+    <li>Follow <a href="https://pytorch.org/get-started/locally/">this</a> to install pytorch. We found that the CPU only installation gave sufficient results.

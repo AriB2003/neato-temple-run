@@ -1,14 +1,3 @@
-# neato_temple_run
-Temple Runner on a Neato Robot
+# Welcome to Neato Temple Run (Runner Edition)
 
-
-### Requirements
-Make sure that PIL is installed
-
-Install Transformers
-```
-pip install transformers
-```
-
-Install PyTorch
-Follow this (tutorial)[https://pytorch.org/get-started/locally/] to install pytorch. We found that the CPU only installation gave sufficient results. 
+All information and the README can be found on the [repository/project website](https://arib2003.github.io/neato_temple_run/index.html).
