@@ -3,10 +3,10 @@
 <package format="3">
   <name>neato_temple_run</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Temple Run-Inspired Neato Runner (Dynamic Path Planning from LIDAR and Vision)</description>
   <maintainer email="abobesh@olin.edu">AriB2003</maintainer>
   <maintainer email="cnie@olin.edu">chrdn</maintainer>
-  <license>TODO: License declaration</license>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

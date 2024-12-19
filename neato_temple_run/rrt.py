@@ -65,6 +65,7 @@ class RRT(object):
         self.step = 0.3 # step size
         self.thresh = self.occ_grid.offset * 1.5 # obstacle threshold
         self.neighborhood = 0.5 # neighborhood radius
+        self.depth = 100 # maximum depth flag
 
         self.path = [] # found path
         self.directions = [] # waypoint directions
@@ -73,7 +74,6 @@ class RRT(object):
         self.trigger_long = False # slow recalculation trigger
         self.first = False # first run flag
         self.success = False # success flag
-        self.depth = 100 # maximum depth flag
 
         # multithreading parallelization
         thread = Thread(target=self.loop_wrapper)
@@ -217,39 +217,39 @@ class RRT(object):
                 return
             if treenode.par is not None:
                 # find neighbors, weights, and theta difference
-                neigh, weigh, deigh = self.find_neighbors_distance(treenode)
-                yeigh = [m for m, n in zip(weigh, deigh)]
-                if yeigh:
+                neighbors, weights, angles = self.find_neighbors_distance(treenode)
+                preferences = [m for m, n in zip(weights, angles)] # can be used to apply a weighting to the two factors
+                if preferences:
                     # if nodes exist in the neighborhood, find the minimum weight
-                    minimum_weight = min(yeigh)
+                    minimum_weight = min(preferences)
                     if minimum_weight < treenode.w:
                         # reset the node's properties with the new parent
-                        minimum_index = weigh.index(minimum_weight)
-                        treenode.par = neigh[minimum_index]
+                        minimum_index = weights.index(minimum_weight)
+                        treenode.par = neighbors[minimum_index]
                         treenode.dir = math.atan2(
                             treenode.pos.y - treenode.par.pos.y,
                             treenode.pos.x - treenode.par.pos.x,
                         )
-                        treenode.w = weigh[minimum_index]
+                        treenode.w = weights[minimum_index]
 
     def find_neighbors_distance(self, treenode):
         """ Find the neighbors, weights, and angles, in a neighborhood """
-        neigh = []
-        weigh = []
-        deigh = []
+        neighbors = []
+        weights = []
+        angles = []
         for tn in self.tree:
             # loop through all nodes and find within neighborhood
             dist = treenode.find_distance(tn)
             if dist < self.neighborhood and tn != treenode:
-                neigh.append(tn)
-                weigh.append(dist + tn.w)
-                deigh.append(
+                neighbors.append(tn)
+                weights.append(dist + tn.w)
+                angles.append(
                     abs(
                         math.atan2(treenode.pos.y - tn.pos.y, treenode.pos.x - tn.pos.x)
                         - tn.dir
                     )
                 )
-        return neigh, weigh, deigh
+        return neighbors, weights, angles
 
     def publish_tree(self):
         """ Publish the tree as a PointCloud """
